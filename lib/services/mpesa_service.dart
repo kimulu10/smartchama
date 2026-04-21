@@ -15,7 +15,7 @@ class MpesaService {
   /// Run: ngrok http 3000
   /// Then update the URL below
   static const String _defaultBaseUrl =
-      'https://smartchama-mpesa-.onrender.com';
+      'https://stk-push-api-4flq.onrender.com';
   static const String baseUrl =
       String.fromEnvironment('MPESA_BASE_URL', defaultValue: _defaultBaseUrl);
 

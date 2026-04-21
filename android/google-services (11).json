@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "645114153552",
+    "project_id": "smart-chama-5ecaf",
+    "storage_bucket": "smart-chama-5ecaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645114153552:android:62ee9085584246ab76df55",
+        "android_client_info": {
+          "package_name": "com.example.smartchama"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB72CTBsJQ5ax4TmlnEH60lMP3cQoe57j0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645114153552:android:f8416c634c3cf60c76df55",
+        "android_client_info": {
+          "package_name": "com.smartchama.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB72CTBsJQ5ax4TmlnEH60lMP3cQoe57j0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

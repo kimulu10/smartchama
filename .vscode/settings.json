@@ -1,0 +1,29 @@
+{
+    "cSpell.words": [
+        "chama",
+        "smartchama"
+    ],
+    "files.exclude": {
+        "**/.git": false,
+        "**/.svn": false,
+        "**/.hg": false,
+        "**/.DS_Store": false,
+        "**/Thumbs.db": false,
+        "**/flutter/ephemeral": false,
+        "**/Flutter/ephemeral": false,
+        "**/.symlinks": false,
+        "**/.plugin_symlinks": false
+    },
+    "explorerExclude.backup": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/flutter/ephemeral": true,
+        "**/Flutter/ephemeral": true,
+        "**/.symlinks": true,
+        "**/.plugin_symlinks": true
+    },
+    "cmake.sourceDirectory": "C:/Users/ADMN/Downloads/smartchama/windows/runner"
+}
