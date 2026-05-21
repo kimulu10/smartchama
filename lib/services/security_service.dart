@@ -6,38 +6,29 @@ class RateLimiter {
   final Map<String, List<int>> _attempts = {};
   final int maxAttempts;
   final int windowMs;
-  final int lockoutMs;
 
   RateLimiter({
     this.maxAttempts = 5,
     this.windowMs = 60000,
-    this.lockoutMs = 300000,
   });
 
-  bool isAllowed(String key) {
+  int _recentCount(String key) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final attempts = _attempts[key] ?? [];
+    return attempts.where((t) => now - t < windowMs).length;
+  }
 
-    final recentAttempts = attempts.where((t) => now - t < windowMs).toList();
+  bool isBlocked(String key) => _recentCount(key) >= maxAttempts;
 
-    if (recentAttempts.length >= maxAttempts) {
-      _attempts[key] = recentAttempts;
-      return false;
-    }
-
-    _attempts[key] = [...recentAttempts, now];
-    return true;
+  void recordAttempt(String key) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final attempts = _attempts[key] ?? [];
+    final recent = attempts.where((t) => now - t < windowMs).toList();
+    _attempts[key] = [...recent, now];
   }
 
   int getRemainingAttempts(String key) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final attempts = _attempts[key] ?? [];
-    final recentAttempts = attempts.where((t) => now - t < windowMs).length;
-    return (maxAttempts - recentAttempts).clamp(0, maxAttempts);
-  }
-
-  bool isLockedOut(String key) {
-    return !isAllowed(key);
+    return (maxAttempts - _recentCount(key)).clamp(0, maxAttempts);
   }
 
   void reset(String key) {
@@ -50,7 +41,7 @@ class RateLimiter {
 }
 
 class AuthRateLimiter extends RateLimiter {
-  AuthRateLimiter() : super(maxAttempts: 5, windowMs: 60000, lockoutMs: 300000);
+  AuthRateLimiter() : super(maxAttempts: 5, windowMs: 60000);
 }
 
 class SessionManager {
@@ -61,7 +52,7 @@ class SessionManager {
 
   static const _sessionKey = 'session_token';
   static const _expiryKey = 'session_expiry';
-  static const _refreshKey = 'session_refresh';
+  static const _userIdKey = 'session_user_id';
 
   static Future<void> createSession({
     required String userId,
@@ -73,9 +64,10 @@ class SessionManager {
 
     await _storage.write(key: _sessionKey, value: token);
     await _storage.write(
-        key: _expiryKey, value: expiry.millisecondsSinceEpoch.toString());
-    await _storage.write(
-        key: _refreshKey, value: now.millisecondsSinceEpoch.toString());
+      key: _expiryKey,
+      value: expiry.millisecondsSinceEpoch.toString(),
+    );
+    await _storage.write(key: _userIdKey, value: userId);
   }
 
   static Future<bool> isSessionValid() async {
@@ -90,30 +82,29 @@ class SessionManager {
     }
   }
 
-  static Future<void> refreshSession(
-      {Duration extendBy = const Duration(days: 7)}) async {
-    final isValid = await isSessionValid();
-    if (!isValid) return;
+  static Future<void> refreshSession({
+    Duration extendBy = const Duration(days: 7),
+  }) async {
+    if (!await isSessionValid()) return;
 
     final newExpiry = DateTime.now().add(extendBy);
     await _storage.write(
-        key: _expiryKey, value: newExpiry.millisecondsSinceEpoch.toString());
+      key: _expiryKey,
+      value: newExpiry.millisecondsSinceEpoch.toString(),
+    );
   }
 
   static Future<void> endSession() async {
     await _storage.delete(key: _sessionKey);
     await _storage.delete(key: _expiryKey);
-    await _storage.delete(key: _refreshKey);
+    await _storage.delete(key: _userIdKey);
   }
 
-  static Future<bool> hasActiveSession() async {
-    return await isSessionValid();
-  }
+  static Future<bool> hasActiveSession() => isSessionValid();
 
-  static Future<String?> getSessionToken() async {
-    final isValid = await isSessionValid();
-    if (!isValid) return null;
-    return await _storage.read(key: _sessionKey);
+  static Future<String?> getSessionUserId() async {
+    if (!await isSessionValid()) return null;
+    return _storage.read(key: _userIdKey);
   }
 }
 
@@ -177,28 +168,20 @@ class SecureStorageService {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: 'auth_token', value: token);
-  }
-
-  static Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
-  }
-
-  static Future<void> deleteToken() async {
-    await _storage.delete(key: 'auth_token');
-  }
-
   static Future<void> saveUserId(String userId) async {
     await _storage.write(key: 'user_id', value: userId);
   }
 
   static Future<String?> getUserId() async {
-    return await _storage.read(key: 'user_id');
+    return _storage.read(key: 'user_id');
   }
 
-  static Future<void> clearAll() async {
-    await _storage.deleteAll();
+  static Future<void> saveEmail(String email) async {
+    await _storage.write(key: 'user_email', value: email);
+  }
+
+  static Future<String?> getStoredEmail() async {
+    return _storage.read(key: 'user_email');
   }
 
   static Future<void> saveBiometricEnabled(bool enabled) async {
@@ -210,22 +193,30 @@ class SecureStorageService {
     return value == 'true';
   }
 
-  static Future<void> saveCredentials(String email, String password) async {
-    await _storage.write(key: 'user_email', value: email);
-    await _storage.write(key: 'user_password', value: password);
-  }
-
-  static Future<Map<String, String>?> getCredentials() async {
-    final email = await _storage.read(key: 'user_email');
-    final password = await _storage.read(key: 'user_password');
-    if (email != null && password != null) {
-      return {'email': email, 'password': password};
-    }
-    return null;
-  }
-
-  static Future<void> clearCredentials() async {
+  /// Clears session and user prefs. Does not sign out of Firebase — call
+  /// FirebaseAuth.signOut separately.
+  static Future<void> clearAll() async {
+    await SessionManager.endSession();
+    await _storage.delete(key: 'user_id');
     await _storage.delete(key: 'user_email');
+    await _storage.delete(key: 'biometric_enabled');
+    await _clearLegacyCredentials();
+  }
+
+  static Future<void> _clearLegacyCredentials() async {
     await _storage.delete(key: 'user_password');
+    await _storage.delete(key: 'auth_token');
+  }
+
+  @Deprecated('Passwords must not be stored on device')
+  static Future<void> saveCredentials(String email, String password) async {
+    await saveEmail(email);
+    await _clearLegacyCredentials();
+  }
+
+  @Deprecated('Use getStoredEmail and Firebase session instead')
+  static Future<Map<String, String>?> getCredentials() async {
+    await _clearLegacyCredentials();
+    return null;
   }
 }

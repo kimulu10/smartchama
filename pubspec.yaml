@@ -30,8 +30,6 @@ dependencies:
   # Optional but useful later
   firebase_storage: ^11.7.7
   firebase_messaging: ^14.9.4
-  firebase_crashlytics: ^3.5.1
-  firebase_performance: ^0.9.3+2
 
   # State management - Riverpod
   flutter_riverpod: ^2.5.1
@@ -81,8 +79,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  fl_chart: ^0.66.0
   flutter_lints: ^4.0.0
 
 flutter:

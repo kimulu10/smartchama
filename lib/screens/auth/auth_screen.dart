@@ -5,6 +5,8 @@ import 'package:smartchama/screens/creat_chama_screen.dart';
 import 'package:smartchama/services/security_service.dart';
 import '../dashboard/unified_dashboard.dart';
 
+final _authRateLimiter = AuthRateLimiter();
+
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -54,32 +56,34 @@ class _AuthScreenState extends State<AuthScreen>
 
   Future<void> _authenticateWithBiometrics() async {
     final authenticated = await BiometricService.authenticate();
-    if (authenticated) {
-      final credentials = await SecureStorageService.getCredentials();
-      if (credentials != null && mounted) {
-        setState(() => isLoading = true);
-        try {
-          final userCredential = await auth.signInWithEmailAndPassword(
-            email: credentials['email']!,
-            password: credentials['password']!,
-          );
-          if (userCredential.user != null && mounted) {
-            await _navigateToDashboard(userCredential.user!.uid);
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Auto-login failed: ${e.toString()}")),
-            );
-          }
-        } finally {
-          if (mounted) setState(() => isLoading = false);
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No saved credentials")),
-        );
+    if (!authenticated || !mounted) return;
+
+    final user = auth.currentUser;
+    final storedEmail = await SecureStorageService.getStoredEmail();
+    final sessionValid = await SessionManager.isSessionValid();
+
+    if (user != null &&
+        sessionValid &&
+        storedEmail != null &&
+        user.email?.toLowerCase() == storedEmail.toLowerCase()) {
+      setState(() => isLoading = true);
+      try {
+        await SessionManager.refreshSession();
+        if (mounted) await _navigateToDashboard(user.uid);
+      } finally {
+        if (mounted) setState(() => isLoading = false);
       }
+      return;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Sign in with email and password first to enable biometric unlock",
+          ),
+        ),
+      );
     }
   }
 
@@ -125,6 +129,15 @@ class _AuthScreenState extends State<AuthScreen>
     if (email.isEmpty || password.isEmpty || (!isLogin && name.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Fill all required fields")),
+      );
+      return;
+    }
+
+    if (_authRateLimiter.isBlocked(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Too many attempts. Please wait a minute and try again."),
+        ),
       );
       return;
     }
@@ -201,9 +214,11 @@ class _AuthScreenState extends State<AuthScreen>
 
       final currentUser = auth.currentUser;
       if (currentUser != null) {
-        if (isLogin) {
-          await SecureStorageService.saveCredentials(email, password);
-        }
+        _authRateLimiter.reset(email);
+        await SecureStorageService.saveEmail(email);
+        await SecureStorageService.saveUserId(currentUser.uid);
+        await SecureStorageService.saveBiometricEnabled(true);
+        await SessionManager.createSession(userId: currentUser.uid);
         await Future.delayed(const Duration(milliseconds: 500));
 
         final userDoc =
@@ -232,8 +247,16 @@ class _AuthScreenState extends State<AuthScreen>
         }
       }
     } catch (e) {
+      _authRateLimiter.recordAttempt(email);
+      final remaining = _authRateLimiter.getRemainingAttempts(email);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
+        SnackBar(
+          content: Text(
+            remaining > 0
+                ? "Error: ${e.toString()} ($remaining attempts left)"
+                : "Error: ${e.toString()}",
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);

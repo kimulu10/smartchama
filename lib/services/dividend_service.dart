@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smartchama/models/dividend_model.dart';
-import 'package:smartchama/models/contribution_model.dart';
-
 class DividendService {
   static final DividendService _instance = DividendService._internal();
   factory DividendService() => _instance;

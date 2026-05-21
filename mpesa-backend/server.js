@@ -31,12 +31,26 @@ const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const shortCode = process.env.MPESA_SHORT_CODE || "174379";
 const passKey = process.env.MPESA_PASS_KEY;
 const callbackURL = process.env.MPESA_CALLBACK_URL;
+const mpesaEnv = (process.env.MPESA_ENV || "sandbox").toLowerCase();
+const mpesaBaseUrl =
+  mpesaEnv === "production"
+    ? "https://api.safaricom.co.ke"
+    : "https://sandbox.safaricom.co.ke";
 
 if (!consumerKey || !consumerSecret || !passKey || !callbackURL) {
   throw new Error(
     "Missing required M-Pesa environment variables. Set MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASS_KEY, and MPESA_CALLBACK_URL."
   );
 }
+
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    mpesaEnv,
+    callbackURL,
+    shortCode,
+  });
+});
 
 // =========================
 // 🔑 GET ACCESS TOKEN
@@ -45,7 +59,7 @@ async function getAccessToken() {
   try {
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
     const response = await axios.get(
-      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      `${mpesaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`,
       { headers: { Authorization: `Basic ${auth}` } }
     );
     return response.data.access_token;
@@ -62,8 +76,11 @@ app.post("/stkpush", async (req, res) => {
   try {
     const { phone, amount, userId, organizationId, chamaId, type, loanId } = req.body;
 
-    if (!phone || !amount || !userId || !chamaId || !type) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!phone || !amount || !userId || !organizationId || !chamaId || !type) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields: phone, amount, userId, organizationId, chamaId, type",
+      });
     }
 
     const token = await getAccessToken();
@@ -87,7 +104,7 @@ app.post("/stkpush", async (req, res) => {
     console.log("📤 Sending STK Push:", stkPushData);
 
     const responseMpesa = await axios.post(
-      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      `${mpesaBaseUrl}/mpesa/stkpush/v1/processrequest`,
       stkPushData,
       { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
     );
@@ -139,7 +156,8 @@ app.post("/stkpush", async (req, res) => {
       success: true,
       checkoutRequestID: responseMpesa.data.CheckoutRequestID,
       responseDescription: responseMpesa.data.ResponseDescription,
-      transactionDocId: mpesaRef.id,
+      transactionDocId: transactionRef.id,
+      mpesaTransactionId: mpesaRef.id,
     });
   } catch (error) {
     console.error("❌ STK Push Error:", error.response?.data || error.message);
@@ -200,26 +218,42 @@ app.post("/callback", async (req, res) => {
           }, { merge: true });
       }
 
-      // Store in contributions or loan_repayments
+      // Update pending contribution or create if app did not pre-create one
       if (transaction.type === "contribution" && transaction.organizationId && transaction.chamaId) {
-        await db
+        const contributionsRef = db
           .collection("organizations")
           .doc(transaction.organizationId)
           .collection("chamas")
           .doc(transaction.chamaId)
-          .collection("contributions")
-          .add({
-          userId: transaction.userId,
-          chamaId: transaction.chamaId,
-          organizationId: transaction.organizationId,
-          amount,
-          description: "Contribution via M-Pesa",
-          date: new Date(),
-          paymentMethod: "mpesa",
-          mpesaCode,
-          status: "completed",
-          createdAt: new Date(),
-        });
+          .collection("contributions");
+
+        const pendingSnap = await contributionsRef
+          .where("checkoutRequestID", "==", CheckoutRequestID)
+          .limit(1)
+          .get();
+
+        if (!pendingSnap.empty) {
+          await pendingSnap.docs[0].ref.update({
+            status: "completed",
+            mpesaCode,
+            amount,
+            updatedAt: new Date(),
+          });
+        } else {
+          await contributionsRef.add({
+            userId: transaction.userId,
+            chamaId: transaction.chamaId,
+            organizationId: transaction.organizationId,
+            amount,
+            description: "Contribution via M-Pesa",
+            date: new Date(),
+            paymentMethod: "mpesa",
+            mpesaCode,
+            checkoutRequestID: CheckoutRequestID,
+            status: "completed",
+            createdAt: new Date(),
+          });
+        }
       } else if (transaction.type === "loan_repayment" && transaction.organizationId && transaction.chamaId) {
         await db
           .collection("organizations")

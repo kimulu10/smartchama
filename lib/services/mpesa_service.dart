@@ -3,49 +3,50 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// M-Pesa client used by the Flutter app.
-///
-/// Note: This app uses an Express backend (`mpesa-backend/server.js`) to
-/// interact with Safaricom Daraja. The Flutter code just triggers STK Push
-/// and polls `/transaction-status/:checkoutRequestID`.
+/// M-Pesa client — talks to the Express backend (`mpesa-backend/server.js`).
 class MpesaService {
-  /// Base URL for the backend.
-  /// 
-  /// IMPORTANT: Update this URL to your current ngrok URL
-  /// Run: ngrok http 3000
-  /// Then update the URL below
   static const String _defaultBaseUrl =
       'https://stk-push-api-4flq.onrender.com';
   static const String baseUrl =
       String.fromEnvironment('MPESA_BASE_URL', defaultValue: _defaultBaseUrl);
 
-  /// Format local Kenya numbers into `2547XXXXXXXX` (no `+`).
   static String formatPhone(String input) {
     var phone = input.trim().replaceAll(' ', '');
     if (phone.startsWith('+')) phone = phone.substring(1);
-
-    // Already in international format.
     if (phone.startsWith('254')) return phone;
-
-    // Kenya local: 07XXXXXXXX -> 2547XXXXXXXX
-    if (phone.startsWith('0')) {
-      return '254${phone.substring(1)}';
-    }
-
-    // Kenya short: 7XXXXXXXX -> 2547XXXXXXXX
-    if (phone.startsWith('7')) {
-      return '254$phone';
-    }
-
+    if (phone.startsWith('0')) return '254${phone.substring(1)}';
+    if (phone.startsWith('7') && phone.length == 9) return '254$phone';
     return phone;
   }
 
-/// Trigger STK Push.
-///
-/// [type] must match the backend contract:
-/// - `contribution`
-/// - `loan_repayment`
-static Future<Map<String, dynamic>> pay({
+  static bool isValidKenyaPhone(String input) {
+    final formatted = formatPhone(input);
+    return RegExp(r'^2547\d{8}$').hasMatch(formatted);
+  }
+
+  static Future<bool> isBackendReachable() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['ok'] == true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  static String _errorMessage(dynamic error) {
+    if (error is Map) {
+      return error['errorMessage']?.toString() ??
+          error['error']?.toString() ??
+          error.toString();
+    }
+    return error.toString();
+  }
+
+  static Future<Map<String, dynamic>> pay({
     required String phone,
     required double amount,
     required String userId,
@@ -54,11 +55,27 @@ static Future<Map<String, dynamic>> pay({
     String? loanId,
     required String type,
   }) async {
+    if (organizationId.isEmpty || chamaId.isEmpty) {
+      return {
+        'success': false,
+        'error': 'Join or create a chama before paying with M-Pesa.',
+      };
+    }
+    if (!isValidKenyaPhone(phone)) {
+      return {
+        'success': false,
+        'error': 'Enter a valid Safaricom number (e.g. 0712345678).',
+      };
+    }
+    if (amount < 1) {
+      return {'success': false, 'error': 'Amount must be at least KES 1.'};
+    }
+
     try {
       final uri = Uri.parse('$baseUrl/stkpush');
       final body = jsonEncode({
         'phone': formatPhone(phone),
-        'amount': amount,
+        'amount': amount.round(),
         'userId': userId,
         'organizationId': organizationId,
         'chamaId': chamaId,
@@ -72,27 +89,43 @@ static Future<Map<String, dynamic>> pay({
             headers: const {'Content-Type': 'application/json'},
             body: body,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 45));
 
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {
+          'success': false,
+          'error': 'Invalid response from payment server (${response.statusCode}).',
+        };
+      }
+
       if (response.statusCode == 200 && decoded['success'] == true) {
         return decoded;
       }
 
       return {
         'success': false,
-        'error': decoded['error'] ?? decoded,
+        'error': _errorMessage(decoded['error'] ?? decoded),
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'error': 'Payment server timed out. Check your internet and try again.',
       };
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {
+        'success': false,
+        'error': 'Cannot reach M-Pesa server. Ensure the backend is running at $baseUrl',
+      };
     }
   }
 
-  /// Poll the backend until the payment callback updates the transaction.
   static Future<String> waitForTransactionCompletion(
     String checkoutRequestID, {
-    Duration interval = const Duration(seconds: 5),
-    Duration timeout = const Duration(seconds: 90),
+    Duration interval = const Duration(seconds: 4),
+    Duration timeout = const Duration(seconds: 120),
   }) async {
     final endTime = DateTime.now().add(timeout);
 
@@ -111,9 +144,7 @@ static Future<Map<String, dynamic>> pay({
             return status as String;
           }
         }
-      } catch (_) {
-        // Ignore polling failures; keep polling until timeout.
-      }
+      } catch (_) {}
 
       await Future.delayed(interval);
     }
@@ -127,16 +158,15 @@ static Future<Map<String, dynamic>> pay({
     required String userId,
     required String organizationId,
     required String chamaId,
-  }) async {
-    return pay(
-      phone: phone,
-      amount: amount,
-      userId: userId,
-      organizationId: organizationId,
-      chamaId: chamaId,
-      type: 'contribution',
-    );
-  }
+  }) =>
+      pay(
+        phone: phone,
+        amount: amount,
+        userId: userId,
+        organizationId: organizationId,
+        chamaId: chamaId,
+        type: 'contribution',
+      );
 
   static Future<Map<String, dynamic>> payLoan({
     required String phone,
@@ -145,15 +175,14 @@ static Future<Map<String, dynamic>> pay({
     required String organizationId,
     required String chamaId,
     required String loanId,
-  }) async {
-    return pay(
-      phone: phone,
-      amount: amount,
-      userId: userId,
-      organizationId: organizationId,
-      chamaId: chamaId,
-      loanId: loanId,
-      type: 'loan_repayment',
-    );
-  }
+  }) =>
+      pay(
+        phone: phone,
+        amount: amount,
+        userId: userId,
+        organizationId: organizationId,
+        chamaId: chamaId,
+        loanId: loanId,
+        type: 'loan_repayment',
+      );
 }

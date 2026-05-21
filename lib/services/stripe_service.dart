@@ -1,11 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+/// Stripe secret keys must only be used on a trusted backend.
+/// From the Flutter app, call your server to create payment intents.
 class StripeService {
   static const String _baseUrl = 'https://api.stripe.com/v1';
   static String? _apiKey;
 
+  @Deprecated('Use a backend proxy; never pass Stripe secret keys in the app')
   static void initialize({required String secretKey}) {
+    if (kDebugMode) {
+      debugPrint(
+        'Warning: Stripe secret keys must not be embedded in client apps.',
+      );
+    }
     _apiKey = secretKey;
   }
 

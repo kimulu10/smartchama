@@ -47,3 +47,13 @@ app.*.map.json
 # Backend secrets
 mpesa-backend/.env
 mpesa-backend/serviceAccountKey.json
+mpesa-backend/*-firebase-adminsdk-*.json
+node_modules/
+build_log.txt
+android/build/
+
+# Android signing (never commit)
+android/keystore.properties
+android/key.properties
+**/*.keystore
+**/*.jks

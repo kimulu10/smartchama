@@ -136,6 +136,13 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
       return;
     }
 
+    if (!MpesaService.isValidKenyaPhone(phoneController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter a valid Safaricom number (e.g. 0712345678)")),
+      );
+      return;
+    }
+
     setState(() => isMpesaLoading = true);
 
     try {

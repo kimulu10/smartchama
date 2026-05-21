@@ -22,6 +22,7 @@ import '../posts/voting_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../profile/profile_screen.dart';
 import '../leaders/leader_dashboard.dart';
+import 'package:smartchama/services/security_service.dart';
 
 class UnifiedDashboard extends StatefulWidget {
   final String userId;
@@ -188,8 +189,11 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
   }
 
   Future<void> logout() async {
+    await SecureStorageService.clearAll();
     await auth.signOut();
-    Navigator.pushNamedAndRemoveUntil(context, '/auth', (_) => false);
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/auth', (_) => false);
+    }
   }
 
   Future<void> shareInvite() async {
@@ -444,14 +448,14 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
               const SizedBox(height: 10),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/create_chama');
+                  Navigator.pushNamed(context, '/createChama');
                 },
                 child: const Text("Create Chama"),
               ),
               const SizedBox(height: 5),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/join_chama');
+                  Navigator.pushNamed(context, '/joinChama');
                 },
                 child: const Text("Join Chama"),
               ),
