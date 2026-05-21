@@ -15,7 +15,9 @@ services:
         sync: false
       - key: MPESA_CALLBACK_URL
         sync: false
-      - key: FIREBASE_SERVICE_ACCOUNT_PATH
-        value: "./smart-chama-5ecaf-firebase-adminsdk-fbsvc-467347eff7.json"
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: MPESA_ENV
+        value: sandbox
       - key: PORT
         value: "3000"

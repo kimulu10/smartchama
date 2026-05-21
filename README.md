@@ -12,6 +12,10 @@ Flutter app for managing chama groups: contributions, loans, M-Pesa payments, an
 | **Android (Play Store)** | Build App Bundle: `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab` |
 | **iOS** | Requires **macOS + Xcode**. See [BUILD_RELEASE.md](BUILD_RELEASE.md). IPA is created via Xcode **Product → Archive**. |
 
+## Finish setup (APK + GitHub + M-Pesa)
+
+See **[FINISH_CHECKLIST.md](FINISH_CHECKLIST.md)** — run `scripts\push-to-github.ps1` and `scripts\build-apk.ps1`.
+
 ## Quick start (developers)
 
 ```bash

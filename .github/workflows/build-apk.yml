@@ -20,7 +20,12 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Copy APK to releases folder
+        run: |
+          mkdir -p releases
+          cp build/app/outputs/flutter-apk/app-release.apk releases/smartchama-release.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -8,13 +8,28 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
 
-// 🔥 FIREBASE ADMIN
+// 🔥 FIREBASE ADMIN (use FIREBASE_SERVICE_ACCOUNT_JSON on Render, or local JSON file)
 const admin = require("firebase-admin");
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "./smart-chama-5ecaf-firebase-adminsdk-fbsvc-467347eff7.json";
-const serviceAccount = require(serviceAccountPath);
+const fs = require("fs");
+const path = require("path");
+
+function loadServiceAccount() {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  }
+  const serviceAccountPath =
+    process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+    path.join(__dirname, "serviceAccountKey.json");
+  if (!fs.existsSync(serviceAccountPath)) {
+    throw new Error(
+      "Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH."
+    );
+  }
+  return JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+}
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(loadServiceAccount()),
 });
 
 const db = admin.firestore();

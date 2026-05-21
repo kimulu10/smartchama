@@ -35,8 +35,9 @@ PORT=3000
 
 1. Push `mpesa-backend/` to GitHub (or use existing Render service)
 2. Set all env vars in Render dashboard
-3. Upload Firebase service account JSON as a secret file or env (path in `FIREBASE_SERVICE_ACCOUNT_PATH`)
-4. Verify: open `https://YOUR-URL/health` — should return `{"ok":true,...}`
+3. **Firebase on Render:** paste the full service account JSON into **`FIREBASE_SERVICE_ACCOUNT_JSON`** (one env var). Do not commit the JSON file to GitHub.
+4. Locally you can use `FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json` instead
+5. Verify: open `https://stk-push-api-4flq.onrender.com/health` — should return `{"ok":true,...}`
 
 ## 4. Test STK Push
 
