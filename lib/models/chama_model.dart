@@ -135,6 +135,11 @@ class ChamaFeatures {
   final bool votingEnabled;
   final bool analyticsEnabled;
   final bool attendanceEnabled;
+  final bool walletEnabled;
+  final bool qrPaymentsEnabled;
+  final bool aiAssistantEnabled;
+  final bool reportsEnabled;
+  final bool loanScoringEnabled;
 
   ChamaFeatures({
     this.loansEnabled = true,
@@ -145,6 +150,11 @@ class ChamaFeatures {
     this.votingEnabled = true,
     this.analyticsEnabled = true,
     this.attendanceEnabled = true,
+    this.walletEnabled = true,
+    this.qrPaymentsEnabled = true,
+    this.aiAssistantEnabled = true,
+    this.reportsEnabled = true,
+    this.loanScoringEnabled = true,
   });
 
   factory ChamaFeatures.fromMap(Map<String, dynamic> map) {
@@ -157,6 +167,11 @@ class ChamaFeatures {
       votingEnabled: map['votingEnabled'] ?? true,
       analyticsEnabled: map['analyticsEnabled'] ?? true,
       attendanceEnabled: map['attendanceEnabled'] ?? true,
+      walletEnabled: map['walletEnabled'] ?? true,
+      qrPaymentsEnabled: map['qrPaymentsEnabled'] ?? true,
+      aiAssistantEnabled: map['aiAssistantEnabled'] ?? true,
+      reportsEnabled: map['reportsEnabled'] ?? true,
+      loanScoringEnabled: map['loanScoringEnabled'] ?? true,
     );
   }
 
@@ -170,6 +185,11 @@ class ChamaFeatures {
       'votingEnabled': votingEnabled,
       'analyticsEnabled': analyticsEnabled,
       'attendanceEnabled': attendanceEnabled,
+      'walletEnabled': walletEnabled,
+      'qrPaymentsEnabled': qrPaymentsEnabled,
+      'aiAssistantEnabled': aiAssistantEnabled,
+      'reportsEnabled': reportsEnabled,
+      'loanScoringEnabled': loanScoringEnabled,
     };
   }
 
@@ -182,6 +202,11 @@ class ChamaFeatures {
     bool? votingEnabled,
     bool? analyticsEnabled,
     bool? attendanceEnabled,
+    bool? walletEnabled,
+    bool? qrPaymentsEnabled,
+    bool? aiAssistantEnabled,
+    bool? reportsEnabled,
+    bool? loanScoringEnabled,
   }) {
     return ChamaFeatures(
       loansEnabled: loansEnabled ?? this.loansEnabled,
@@ -192,6 +217,11 @@ class ChamaFeatures {
       votingEnabled: votingEnabled ?? this.votingEnabled,
       analyticsEnabled: analyticsEnabled ?? this.analyticsEnabled,
       attendanceEnabled: attendanceEnabled ?? this.attendanceEnabled,
+      walletEnabled: walletEnabled ?? this.walletEnabled,
+      qrPaymentsEnabled: qrPaymentsEnabled ?? this.qrPaymentsEnabled,
+      aiAssistantEnabled: aiAssistantEnabled ?? this.aiAssistantEnabled,
+      reportsEnabled: reportsEnabled ?? this.reportsEnabled,
+      loanScoringEnabled: loanScoringEnabled ?? this.loanScoringEnabled,
     );
   }
 }

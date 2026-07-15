@@ -3,6 +3,7 @@ class Investment {
   final String chamaId;
   final String name;
   final String description;
+  final String notes;
   final double amount;
   final double expectedReturn;
   final double actualReturn;
@@ -10,12 +11,14 @@ class Investment {
   final DateTime? endDate;
   final InvestmentType type;
   final InvestmentStatus status;
+  final RiskLevel riskLevel;
 
   Investment({
     required this.id,
     required this.chamaId,
     required this.name,
     this.description = '',
+    this.notes = '',
     required this.amount,
     this.expectedReturn = 0,
     this.actualReturn = 0,
@@ -23,6 +26,7 @@ class Investment {
     this.endDate,
     required this.type,
     this.status = InvestmentStatus.active,
+    this.riskLevel = RiskLevel.medium,
   });
 
   factory Investment.fromMap(Map<String, dynamic> map, String id) {
@@ -31,6 +35,7 @@ class Investment {
       chamaId: map['chamaId'] ?? '',
       name: map['name'] ?? '',
       description: map['description'] ?? '',
+      notes: map['notes'] ?? '',
       amount: (map['amount'] ?? 0).toDouble(),
       expectedReturn: (map['expectedReturn'] ?? 0).toDouble(),
       actualReturn: (map['actualReturn'] ?? 0).toDouble(),
@@ -42,6 +47,7 @@ class Investment {
           : null,
       type: InvestmentType.values[map['type'] ?? 0],
       status: InvestmentStatus.values[map['status'] ?? 0],
+      riskLevel: RiskLevel.values[map['riskLevel'] ?? 1],
     );
   }
 
@@ -50,6 +56,7 @@ class Investment {
       'chamaId': chamaId,
       'name': name,
       'description': description,
+      'notes': notes,
       'amount': amount,
       'expectedReturn': expectedReturn,
       'actualReturn': actualReturn,
@@ -57,6 +64,7 @@ class Investment {
       'endDate': endDate?.millisecondsSinceEpoch,
       'type': type.index,
       'status': status.index,
+      'riskLevel': riskLevel.index,
     };
   }
 
@@ -71,6 +79,11 @@ enum InvestmentType {
   fixedDeposit,
   saccoShares,
   realEstate,
+  land,
+  stocks,
+  treasuryBonds,
+  businesses,
+  moneyMarketFunds,
   other,
 }
 
@@ -78,6 +91,25 @@ enum InvestmentStatus {
   active,
   matured,
   liquidated,
+}
+
+enum RiskLevel {
+  low,
+  medium,
+  high,
+}
+
+extension RiskLevelExtension on RiskLevel {
+  String get displayName {
+    switch (this) {
+      case RiskLevel.low:
+        return 'Low';
+      case RiskLevel.medium:
+        return 'Medium';
+      case RiskLevel.high:
+        return 'High';
+    }
+  }
 }
 
 extension InvestmentTypeExtension on InvestmentType {
@@ -95,6 +127,16 @@ extension InvestmentTypeExtension on InvestmentType {
         return 'Sacco Shares';
       case InvestmentType.realEstate:
         return 'Real Estate';
+      case InvestmentType.land:
+        return 'Land';
+      case InvestmentType.stocks:
+        return 'Stocks';
+      case InvestmentType.treasuryBonds:
+        return 'Treasury Bonds';
+      case InvestmentType.businesses:
+        return 'Businesses';
+      case InvestmentType.moneyMarketFunds:
+        return 'Money Market Funds';
       case InvestmentType.other:
         return 'Other';
     }

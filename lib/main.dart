@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:smartchama/screens/creat_chama_screen.dart';
+import 'package:smartchama/providers/app_providers.dart';
+import 'package:smartchama/screens/create_chama_screen.dart';
 import 'package:smartchama/screens/join_chama_screen.dart';
 import 'package:smartchama/services/notification_service.dart';
 import 'package:smartchama/services/offline_storage_service.dart';
 import 'firebase_options.dart';
 
 import 'screens/auth/auth_screen.dart';
+import 'screens/saas/saas_hub_screen.dart';
 import 'services/offline_sync_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -27,7 +29,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initializeAndNavigate() async {
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/auth');
+      Navigator.pushReplacementNamed(context, '/saas');
     }
   }
 
@@ -82,16 +84,19 @@ void main() async {
   runApp(const ProviderScope(child: SmartChamaApp()));
 }
 
-class SmartChamaApp extends StatelessWidget {
+class SmartChamaApp extends ConsumerWidget {
   const SmartChamaApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: "SmartChama",
       debugShowCheckedModeBanner: false,
+      themeMode: themeMode,
       theme: ThemeData(
         primarySwatch: Colors.green,
+        brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.grey[100],
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1B5E20),
@@ -124,6 +129,15 @@ class SmartChamaApp extends StatelessWidget {
           ),
         ),
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.green,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0E3A13),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+      ),
       initialRoute: '/',
       onGenerateRoute: (settings) {
         switch (settings.name) {
@@ -135,6 +149,9 @@ class SmartChamaApp extends StatelessWidget {
             return MaterialPageRoute(builder: (_) => const CreateChamaScreen());
           case '/joinChama':
             return MaterialPageRoute(builder: (_) => const JoinChamaScreen());
+          case '/saas':
+            return MaterialPageRoute(
+                builder: (_) => const SaasHubScreen());
           default:
             return MaterialPageRoute(builder: (_) => const AuthScreen());
         }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:smartchama/screens/creat_chama_screen.dart';
+import 'package:smartchama/screens/create_chama_screen.dart';
 import 'package:smartchama/services/security_service.dart';
 import '../dashboard/unified_dashboard.dart';
 

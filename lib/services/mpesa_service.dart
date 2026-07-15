@@ -46,12 +46,18 @@ class MpesaService {
     return error.toString();
   }
 
+  static Map<String, String> _headers({required String idToken}) => {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      };
+
   static Future<Map<String, dynamic>> pay({
     required String phone,
     required double amount,
     required String userId,
     required String organizationId,
     required String chamaId,
+    required String idToken,
     String? loanId,
     required String type,
   }) async {
@@ -86,7 +92,7 @@ class MpesaService {
       final response = await http
           .post(
             uri,
-            headers: const {'Content-Type': 'application/json'},
+            headers: _headers(idToken: idToken),
             body: body,
           )
           .timeout(const Duration(seconds: 45));
@@ -124,6 +130,7 @@ class MpesaService {
 
   static Future<String> waitForTransactionCompletion(
     String checkoutRequestID, {
+    required String idToken,
     Duration interval = const Duration(seconds: 4),
     Duration timeout = const Duration(seconds: 120),
   }) async {
@@ -134,7 +141,7 @@ class MpesaService {
         final uri =
             Uri.parse('$baseUrl/transaction-status/$checkoutRequestID');
         final response = await http
-            .get(uri)
+            .get(uri, headers: _headers(idToken: idToken))
             .timeout(const Duration(seconds: 15));
 
         if (response.statusCode == 200) {
@@ -158,6 +165,7 @@ class MpesaService {
     required String userId,
     required String organizationId,
     required String chamaId,
+    required String idToken,
   }) =>
       pay(
         phone: phone,
@@ -165,6 +173,7 @@ class MpesaService {
         userId: userId,
         organizationId: organizationId,
         chamaId: chamaId,
+        idToken: idToken,
         type: 'contribution',
       );
 
@@ -175,6 +184,7 @@ class MpesaService {
     required String organizationId,
     required String chamaId,
     required String loanId,
+    required String idToken,
   }) =>
       pay(
         phone: phone,
@@ -183,6 +193,7 @@ class MpesaService {
         organizationId: organizationId,
         chamaId: chamaId,
         loanId: loanId,
+        idToken: idToken,
         type: 'loan_repayment',
       );
 }

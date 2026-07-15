@@ -12,6 +12,8 @@ class LoanModel {
   final int month;
   final int year;
   final double interestRate;
+  final String? scoreId;
+  final String? riskLevel;
 
   LoanModel({
     required this.id,
@@ -27,6 +29,8 @@ class LoanModel {
     required this.month,
     required this.year,
     this.interestRate = 0,
+    this.scoreId,
+    this.riskLevel,
   });
 
   factory LoanModel.fromMap(Map<String, dynamic> map, String id) {
@@ -48,6 +52,8 @@ class LoanModel {
       month: map['month'] ?? DateTime.now().month,
       year: map['year'] ?? DateTime.now().year,
       interestRate: (map['interestRate'] ?? 0).toDouble(),
+      scoreId: map['scoreId'] as String?,
+      riskLevel: map['riskLevel'] as String?,
     );
   }
 
@@ -65,6 +71,8 @@ class LoanModel {
       'month': month,
       'year': year,
       'interestRate': interestRate,
+      if (scoreId != null) 'scoreId': scoreId,
+      if (riskLevel != null) 'riskLevel': riskLevel,
     };
   }
 
@@ -98,6 +106,8 @@ class LoanModel {
     int? month,
     int? year,
     double? interestRate,
+    String? scoreId,
+    String? riskLevel,
   }) {
     return LoanModel(
       id: id ?? this.id,
@@ -113,6 +123,8 @@ class LoanModel {
       month: month ?? this.month,
       year: year ?? this.year,
       interestRate: interestRate ?? this.interestRate,
+      scoreId: scoreId ?? this.scoreId,
+      riskLevel: riskLevel ?? this.riskLevel,
     );
   }
 }

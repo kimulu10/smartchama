@@ -16,8 +16,26 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Flutter test
+        run: flutter test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mpesa-backend/package-lock.json
+
+      - name: Backend tests
+        working-directory: mpesa-backend
+        run: |
+          npm ci
+          npm test
 
       - name: Build release APK
         run: flutter build apk --release --no-tree-shake-icons

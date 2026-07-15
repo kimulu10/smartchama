@@ -39,16 +39,20 @@ class InvestmentService {
     required String investmentId,
     String? name,
     String? description,
+    String? notes,
     double? actualReturn,
     DateTime? endDate,
     InvestmentStatus? status,
+    RiskLevel? riskLevel,
   }) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (description != null) updates['description'] = description;
+    if (notes != null) updates['notes'] = notes;
     if (actualReturn != null) updates['actualReturn'] = actualReturn;
     if (endDate != null) updates['endDate'] = endDate.millisecondsSinceEpoch;
     if (status != null) updates['status'] = status.index;
+    if (riskLevel != null) updates['riskLevel'] = riskLevel.index;
 
     await _investments.doc(investmentId).update(updates);
   }

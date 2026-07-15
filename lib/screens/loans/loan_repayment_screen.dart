@@ -168,6 +168,8 @@ class _LoanRepaymentScreenState
     final chamaId = userDoc["chamaId"];
     final organizationId = userDoc["organizationId"] ?? '';
 
+    final idToken = (await user.getIdToken())!;
+
     final result = await MpesaService.payLoan(
       phone: phoneController.text,
       amount: amount,
@@ -175,6 +177,7 @@ class _LoanRepaymentScreenState
       organizationId: organizationId,
       chamaId: chamaId,
       loanId: widget.loanId,
+      idToken: idToken,
     );
 
     if (result['success'] != true) {
@@ -207,7 +210,10 @@ class _LoanRepaymentScreenState
       ),
     );
 
-    final status = await MpesaService.waitForTransactionCompletion(checkoutRequestID);
+    final status = await MpesaService.waitForTransactionCompletion(
+      checkoutRequestID,
+      idToken: idToken,
+    );
 
     if (!mounted) return;
     Navigator.pop(context);

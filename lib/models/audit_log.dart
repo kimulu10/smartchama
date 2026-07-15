@@ -57,6 +57,9 @@ enum AuditAction {
   deleted,
   login,
   logout,
+  approval,
+  payment,
+  roleChange,
   contributionAdded,
   loanApproved,
   loanRejected,
@@ -66,6 +69,11 @@ enum AuditAction {
   meetingScheduled,
   voteCast,
   documentUploaded,
+  brandingUpdated,
+  integrationConnected,
+  fraudAlertResolved,
+  subscriptionChanged,
+  exportGenerated,
 }
 
 extension AuditActionExtension on AuditAction {
@@ -99,6 +107,22 @@ extension AuditActionExtension on AuditAction {
         return 'Vote cast';
       case AuditAction.documentUploaded:
         return 'Document uploaded';
+      case AuditAction.approval:
+        return 'Approval';
+      case AuditAction.payment:
+        return 'Payment';
+      case AuditAction.roleChange:
+        return 'Role changed';
+      case AuditAction.brandingUpdated:
+        return 'Branding updated';
+      case AuditAction.integrationConnected:
+        return 'Integration connected';
+      case AuditAction.fraudAlertResolved:
+        return 'Fraud alert resolved';
+      case AuditAction.subscriptionChanged:
+        return 'Subscription changed';
+      case AuditAction.exportGenerated:
+        return 'Report exported';
     }
   }
 }

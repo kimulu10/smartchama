@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -105,6 +106,9 @@ final userProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
 final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
   return Connectivity().onConnectivityChanged;
 });
+
+/// App-wide theme mode (light/dark) for the Mobile & Web Experience feature.
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 
 final isOnlineProvider = Provider<bool>((ref) {
   final connectivity = ref.watch(connectivityProvider);

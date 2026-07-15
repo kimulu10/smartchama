@@ -28,11 +28,35 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
   bool isLoading = false;
   bool isMpesaLoading = false;
   String chamaName = "Add Contribution";
+  bool? mpesaBackendOk;
+  bool checkingBackend = true;
 
   @override
   void initState() {
     super.initState();
     _loadChamaName();
+    _checkMpesaBackend();
+    _prefillPhone();
+  }
+
+  Future<void> _checkMpesaBackend() async {
+    final ok = await MpesaService.isBackendReachable();
+    if (mounted) {
+      setState(() {
+        mpesaBackendOk = ok;
+        checkingBackend = false;
+      });
+    }
+  }
+
+  Future<void> _prefillPhone() async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    final userDoc = await firestore.collection("users").doc(user.uid).get();
+    final phone = userDoc.data()?["phone"] as String?;
+    if (phone != null && phone.isNotEmpty && phoneController.text.isEmpty) {
+      phoneController.text = phone;
+    }
   }
 
   Future<void> _loadChamaName() async {
@@ -157,6 +181,12 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
           ? "Monthly contribution"
           : descriptionController.text;
 
+      final idToken = await user.getIdToken();
+      if (idToken == null) {
+        setState(() => isMpesaLoading = false);
+        return;
+      }
+
       // Call M-Pesa STK Push
       final result = await MpesaService.pay(
         phone: phoneController.text,
@@ -164,6 +194,7 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
         userId: user.uid,
         organizationId: widget.organizationId,
         chamaId: widget.chamaId,
+        idToken: idToken,
         type: 'contribution',
       );
 
@@ -211,7 +242,10 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
         );
 
         // Poll for transaction status
-        final status = await MpesaService.waitForTransactionCompletion(checkoutRequestID);
+        final status = await MpesaService.waitForTransactionCompletion(
+          checkoutRequestID,
+          idToken: idToken,
+        );
         
         if (!mounted) return;
         Navigator.pop(context); // Close waiting dialog
@@ -397,6 +431,37 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
             const SizedBox(height: 16),
             
             // M-Pesa Payment Section
+            if (checkingBackend)
+              const LinearProgressIndicator(minHeight: 2)
+            else if (mpesaBackendOk == false)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off, color: Colors.red.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "M-Pesa server offline. Open stk-push-api-4flq.onrender.com/health in browser, wait 1 min, then tap refresh.",
+                        style: TextStyle(fontSize: 12, color: Colors.red.shade900),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 20),
+                      onPressed: () {
+                        setState(() => checkingBackend = true);
+                        _checkMpesaBackend();
+                      },
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -466,7 +531,9 @@ class _AddContributionScreenState extends State<AddContributionScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "You will receive an STK push on your phone",
+                    mpesaBackendOk == true
+                        ? "You will receive an STK push on your phone. Sandbox test: 254708374149"
+                        : "You will receive an STK push when the server is online",
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
