@@ -12,6 +12,14 @@ Flutter app for managing chama groups: contributions, loans, M-Pesa payments, an
 | **Android (Play Store)** | Build App Bundle: `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab` |
 | **iOS** | Requires **macOS + Xcode**. See [BUILD_RELEASE.md](BUILD_RELEASE.md). IPA is created via Xcode **Product → Archive**. |
 
+## Deploy for users
+
+**Code is on GitHub:** https://github.com/kimulu10/smartchama
+
+1. **Download APK:** [Actions](https://github.com/kimulu10/smartchama/actions) → **Build Android APK** → download artifact (builds on every push)
+2. **M-Pesa + Firebase:** follow **[DEPLOY.md](DEPLOY.md)**
+3. Local APK: `scripts\build-apk.ps1` (if Gradle/network works on your PC)
+
 ## Quick start (developers)
 
 ```bash

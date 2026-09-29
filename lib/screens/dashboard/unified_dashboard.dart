@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,6 +11,7 @@ import 'package:smartchama/models/chama_model.dart';
 import '../loans/loan_request_screen.dart';
 import '../loans/loan_management_screen.dart';
 import '../loans/member_loan_screen.dart';
+import '../loans/loan_scoring_screen.dart';
 import '../analytics/analytics_screen.dart';
 import '../chama/members_screen.dart';
 import '../transactions/transaction_history_screen.dart';
@@ -22,6 +24,13 @@ import '../posts/voting_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../profile/profile_screen.dart';
 import '../leaders/leader_dashboard.dart';
+import '../wallet/wallet_screen.dart';
+import '../wallet/wallet_transactions_screen.dart';
+import '../ai_assistant/ai_assistant_screen.dart';
+import '../reports/reports_screen.dart';
+import '../reports/report_detail_screen.dart';
+import '../payments/qr_payment_screen.dart';
+import '../payments/qr_payment_history_screen.dart';
 import 'package:smartchama/services/security_service.dart';
 
 class UnifiedDashboard extends StatefulWidget {
@@ -360,6 +369,76 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
     );
   }
 
+  void goToWallet() {
+    if (features.walletEnabled) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WalletScreen(
+            chamaId: chamaId,
+            organizationId: organizationId,
+          ),
+        ),
+      );
+    }
+  }
+
+  void goToAIAssistant() {
+    if (features.aiAssistantEnabled) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AIAssistantScreen(
+            chamaId: chamaId,
+            organizationId: organizationId,
+          ),
+        ),
+      );
+    }
+  }
+
+  void goToReports() {
+    if (features.reportsEnabled && isLeader) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReportsScreen(
+            chamaId: chamaId,
+            organizationId: organizationId,
+          ),
+        ),
+      );
+    }
+  }
+
+  void goToQRPayments() {
+    if (features.qrPaymentsEnabled && isLeader) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QRPaymentScreen(
+            chamaId: chamaId,
+            organizationId: organizationId,
+          ),
+        ),
+      );
+    }
+  }
+
+  void goToLoanScoring() {
+    if (features.loanScoringEnabled && isLeader) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoanScoringScreen(
+            chamaId: chamaId,
+            organizationId: organizationId,
+          ),
+        ),
+      );
+    }
+  }
+
   void goToAdminDashboard() {
     Navigator.push(
       context,
@@ -629,6 +708,11 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
             _actionBtn("Members", Icons.people, goToMembers),
             if (features.votingEnabled) _actionBtn("Votes", Icons.how_to_vote, goToVoting),
             if (features.meetingsEnabled && isLeader) _actionBtn("Meetings", Icons.event, goToMeetings),
+            if (features.walletEnabled && isLeader) _actionBtn("Wallet", Icons.account_balance_wallet, goToWallet),
+            if (features.aiAssistantEnabled) _actionBtn("AI Assistant", Icons.psychology, goToAIAssistant),
+            if (features.reportsEnabled && isLeader) _actionBtn("Reports", Icons.picture_as_pdf, goToReports),
+            if (features.qrPaymentsEnabled && isLeader) _actionBtn("QR Payments", Icons.qr_code, goToQRPayments),
+            if (features.loanScoringEnabled && isLeader) _actionBtn("Loan Scoring", Icons.auto_graph, goToLoanScoring),
           ],
         ),
       ],

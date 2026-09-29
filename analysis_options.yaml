@@ -6,6 +6,7 @@ linter:
     avoid_returning_null_for_void: true
     avoid_unused_constructor_parameters: true
     prefer_const_constructors: true
+    prefer_const_declarations: true
     prefer_final_fields: true
     prefer_relative_imports: true
     unawaited_futures: true
@@ -35,7 +36,6 @@ linter:
     prefer_equal_for_default_values: true
     prefer_final_in_for_each: true
     prefer_final_locals: true
-    prefer_for_elements_to_map_fromIterable: true
     prefer_for_elements_to_map_fromIterable: true
     prefer_foreach: true
     prefer_function_declarations_over_variables: true

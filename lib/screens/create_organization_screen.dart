@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'creat_chama_screen.dart';
+import 'create_chama_screen.dart';
 
 /// Organization + chama setup is handled by [CreateChamaScreen].
 class CreateOrganizationScreen extends StatelessWidget {

@@ -145,6 +145,9 @@ final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
   return Connectivity().onConnectivityChanged;
 });
 
+/// App-wide theme mode (light/dark) for the Mobile & Web Experience feature.
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
+
 final isOnlineProvider = Provider<bool>((ref) {
   final connectivity = ref.watch(connectivityProvider);
   return connectivity.when(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 
 class VotingScreen extends StatefulWidget {
   final String chamaId;
@@ -23,7 +25,7 @@ class VotingScreen extends StatefulWidget {
 class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderStateMixin {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
-  
+
   String? currentUserId;
   String chamaName = "Voting";
   late TabController _tabController;
@@ -57,7 +59,10 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
 
   Future<void> createRoleVote() async {
     final titleController = TextEditingController();
+    final descController = TextEditingController();
     String selectedRole = "chairman";
+    DateTime? deadline;
+    bool anonymous = false;
     List<Map<String, String>> candidates = [];
 
     showDialog(
@@ -73,7 +78,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                 const Text("Select Role:", style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: selectedRole,
+                  value: selectedRole,
                   decoration: const InputDecoration(border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: "chairman", child: Text("Chairman")),
@@ -83,8 +88,6 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                   onChanged: (value) => setStateDialog(() => selectedRole = value!),
                 ),
                 const SizedBox(height: 16),
-                const Text("Description:", style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
                 TextField(
                   controller: titleController,
                   maxLines: 2,
@@ -92,6 +95,41 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                     hintText: "e.g., Election for new Chairman",
                     border: OutlineInputBorder(),
                   ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: "Description",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: anonymous,
+                      onChanged: (v) => setStateDialog(() => anonymous = v ?? false),
+                    ),
+                    const Text("Anonymous Voting"),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now().add(const Duration(days: 1)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setStateDialog(() => deadline = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(deadline == null ? "Set Deadline" : "Deadline: ${DateFormat('MMM dd, yyyy').format(deadline!)}"),
                 ),
               ],
             ),
@@ -101,7 +139,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
             ElevatedButton(
               onPressed: () async {
                 if (titleController.text.trim().isEmpty) return;
-                
+
                 await firestore
                     .collection("organizations")
                     .doc(widget.organizationId)
@@ -110,6 +148,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                     .collection("votes")
                     .add({
                   "title": titleController.text.trim(),
+                  "description": descController.text.trim(),
                   "role": selectedRole,
                   "type": "role_election",
                   "createdBy": currentUserId,
@@ -118,9 +157,12 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                   "noVotes": 0,
                   "voters": [],
                   "status": "active",
-                  "candidates": [],
+                  "candidates": candidates,
+                  "anonymous": anonymous,
+                  "deadline": deadline?.millisecondsSinceEpoch,
+                  "comments": [],
                 });
-                
+
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Role election created!")),
@@ -137,74 +179,108 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
   Future<void> createPoll() async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
+    DateTime? deadline;
+    bool anonymous = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Create Poll"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: "Poll Title",
-                  hintText: "e.g., Monthly Contribution Amount",
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text("Create Poll"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: "Poll Title",
+                    hintText: "e.g., Monthly Contribution Amount",
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  hintText: "Describe what members are voting for",
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: "Description",
+                    hintText: "Describe what members are voting for",
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: anonymous,
+                      onChanged: (v) => setStateDialog(() => anonymous = v ?? false),
+                    ),
+                    const Text("Anonymous Voting"),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now().add(const Duration(days: 1)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setStateDialog(() => deadline = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(deadline == null ? "Set Deadline" : "Deadline: ${DateFormat('MMM dd, yyyy').format(deadline!)}"),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.trim().isEmpty) {
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter a title")),
+                  );
+                  return;
+                }
+
+                await firestore
+                    .collection("organizations")
+                    .doc(widget.organizationId)
+                    .collection("chamas")
+                    .doc(widget.chamaId)
+                    .collection("votes")
+                    .add({
+                  "title": titleController.text.trim(),
+                  "description": descriptionController.text.trim(),
+                  "type": "poll",
+                  "createdBy": currentUserId,
+                  "createdAt": Timestamp.now(),
+                  "yesVotes": 0,
+                  "noVotes": 0,
+                  "voters": [],
+                  "status": "active",
+                  "anonymous": anonymous,
+                  "deadline": deadline?.millisecondsSinceEpoch,
+                  "comments": [],
+                });
+
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Please enter a title")),
+                  const SnackBar(content: Text("Poll created successfully")),
                 );
-                return;
-              }
-
-              await firestore
-                  .collection("organizations")
-                  .doc(widget.organizationId)
-                  .collection("chamas")
-                  .doc(widget.chamaId)
-                  .collection("votes")
-                  .add({
-                "title": titleController.text.trim(),
-                "description": descriptionController.text.trim(),
-                "type": "poll",
-                "createdBy": currentUserId,
-                "createdAt": Timestamp.now(),
-                "yesVotes": 0,
-                "noVotes": 0,
-                "voters": [],
-                "status": "active",
-              });
-
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Poll created successfully")),
-              );
-            },
-            child: const Text("Create"),
-          ),
-        ],
+              },
+              child: const Text("Create"),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -317,7 +393,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
           const SizedBox(height: 8),
           Text(
             widget.isLeader
-                ? type == "role_election" 
+                ? type == "role_election"
                     ? "Create a role election for members to vote"
                     : "Create a poll to get members' input"
                 : "Check back later for elections",
@@ -345,6 +421,9 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
     final noVotes = data["noVotes"] ?? 0;
     final voters = List<String>.from(data["voters"] ?? []);
     final status = data["status"] ?? "active";
+    final anonymous = data["anonymous"] ?? false;
+    final deadline = data["deadline"] != null ? DateTime.fromMillisecondsSinceEpoch(data["deadline"]) : null;
+    final comments = List<Map<String, dynamic>>.from(data["comments"] ?? []);
 
     final hasVoted = currentUserId != null && voters.contains(currentUserId);
     final totalVotes = (yesVotes as int) + (noVotes as int);
@@ -352,7 +431,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
 
     Color cardColor;
     IconData cardIcon;
-    
+
     if (data["type"] == "role_election") {
       switch (role) {
         case "chairman":
@@ -438,19 +517,78 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                 const SizedBox(height: 12),
                 Text(description, style: TextStyle(color: Colors.grey[700])),
               ],
+              if (deadline != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.timer, size: 16, color: deadline.isBefore(DateTime.now()) ? Colors.red : Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      deadline.isBefore(DateTime.now()) ? "Ended ${DateFormat('MMM dd').format(deadline)}" : "Ends ${DateFormat('MMM dd, hh:mm a').format(deadline)}",
+                      style: TextStyle(color: deadline.isBefore(DateTime.now()) ? Colors.red : Colors.grey[600], fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+              if (anonymous) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.visibility_off, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text("Anonymous voting", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  _buildVoteResult("Yes", yesVotes, yesPercent, Colors.green),
-                  const SizedBox(width: 20),
-                  _buildVoteResult("No", noVotes, (100.0 - yesPercent).toDouble(), Colors.red),
-                ],
-              ),
-              const SizedBox(height: 12),
+              if (totalVotes > 0)
+                SizedBox(
+                  height: 180,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 40,
+                      sections: [
+                        PieChartSectionData(
+                          value: yesVotes.toDouble(),
+                          title: 'Yes',
+                          color: Colors.green,
+                          radius: 60,
+                          titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        PieChartSectionData(
+                          value: noVotes.toDouble(),
+                          title: 'No',
+                          color: Colors.red,
+                          radius: 60,
+                          titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (totalVotes > 0) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildVoteResult("Yes", yesVotes, yesPercent, Colors.green),
+                    _buildVoteResult("No", noVotes, (100.0 - yesPercent).toDouble(), Colors.red),
+                  ],
+                ),
+              ],
               Text(
                 "Total votes: $totalVotes",
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
+              if (comments.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text("Comments:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ...comments.take(2).map((c) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(c['text'] ?? '', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                )),
+              ],
               if (status == "active" && !hasVoted) ...[
                 const SizedBox(height: 16),
                 Row(
@@ -508,6 +646,17 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
                   ],
                 ),
               ],
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _showCommentsDialog(voteDoc.id, comments),
+                icon: const Icon(Icons.comment, size: 18),
+                label: Text("Comments (${comments.length})"),
+              ),
+              TextButton.icon(
+                onPressed: () => _exportVote(voteDoc.id, data),
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text("Export"),
+              ),
             ],
           ),
         ),
@@ -551,7 +700,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
         .collection("votes")
         .doc(voteId)
         .get();
-    
+
     final data = voteDoc.data() ?? {};
     final voters = List<String>.from(data["voters"] ?? []);
 
@@ -591,7 +740,7 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
         .collection("votes")
         .doc(voteId)
         .update({"status": "closed"});
-    
+
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vote closed")));
   }
 
@@ -623,5 +772,71 @@ class _VotingScreenState extends State<VotingScreen> with SingleTickerProviderSt
           .delete();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vote deleted")));
     }
+  }
+
+  void _showCommentsDialog(String voteId, List<Map<String, dynamic>> comments) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Comments"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...comments.map((c) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(c['text'] ?? '', style: TextStyle(color: Colors.grey[700])),
+              )),
+              if (comments.isEmpty)
+                const Text("No comments yet", style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(hintText: "Add a comment"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isEmpty) return;
+              comments.add({'text': controller.text.trim(), 'user': currentUserId, 'time': DateTime.now().millisecondsSinceEpoch});
+              await firestore
+                  .collection("organizations")
+                  .doc(widget.organizationId)
+                  .collection("chamas")
+                  .doc(widget.chamaId)
+                  .collection("votes")
+                  .doc(voteId)
+                  .update({"comments": comments});
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _exportVote(String voteId, Map<String, dynamic> data) {
+    final buffer = StringBuffer();
+    buffer.writeln("Vote Export");
+    buffer.writeln("Title: ${data['title']}");
+    buffer.writeln("Type: ${data['type']}");
+    buffer.writeln("Status: ${data['status']}");
+    buffer.writeln("Yes Votes: ${data['yesVotes']}");
+    buffer.writeln("No Votes: ${data['noVotes']}");
+    buffer.writeln("Total Votes: ${(data['yesVotes'] ?? 0) + (data['noVotes'] ?? 0)}");
+    buffer.writeln("Anonymous: ${data['anonymous'] ?? false}");
+    buffer.writeln("Deadline: ${data['deadline'] != null ? DateTime.fromMillisecondsSinceEpoch(data['deadline']).toLocal() : 'None'}");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Vote exported (${buffer.toString().length} chars)")),
+    );
   }
 }

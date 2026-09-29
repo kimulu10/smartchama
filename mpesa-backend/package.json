@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js"
   },
   "keywords": ["mpesa", "payments", "flutter"],
   "author": "",
@@ -16,6 +16,6 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "firebase-admin": "^12.0.0"
+    "firebase-admin": "^13.7.0"
   }
 }
