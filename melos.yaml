@@ -1,0 +1,42 @@
+name: smartchama
+packages:
+  - apps/*
+  - packages/*
+scripts:
+  bootstrap:
+    run: flutter pub get
+    description: Get all dependencies for all packages
+  test:
+    run: melos exec -- flutter test
+    description: Run tests for all packages
+  analyze:
+    run: melos exec -- flutter analyze
+    description: Analyze all packages
+  build:
+    run: melos exec -- flutter build apk --release
+    description: Build release APK for all packages
+  build:ios:
+    run: melos exec -- flutter build ipa --release
+    description: Build release IPA for all packages (macOS only)
+  format:
+    run: melos exec -- dart format .
+    description: Format all packages
+  generate:
+    run: melos exec -- dart run build_runner build --delete-conflicting-outputs
+    description: Generate code for all packages
+  clean:
+    run: melos exec -- flutter clean
+    description: Clean all packages
+  upgrade:
+    run: melos exec -- flutter pub upgrade
+    description: Upgrade dependencies for all packages
+command:
+  bootstrap:
+    description: Bootstrap all packages
+    concurrency: 4
+  test:
+    description: Test all packages
+    concurrency: 4
+  analyze:
+    description: Analyze all packages
+    concurrency: 4

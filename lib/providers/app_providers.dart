@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:smartchama/services/security_service.dart';
+import 'package:smartchama/services/branding_service.dart';
+import 'package:smartchama/repositories/chama_repository.dart';
+import 'package:smartchama/repositories/firestore_chama_repository.dart';
 
 final firebaseAuthProvider =
     Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
@@ -17,12 +22,42 @@ final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authStateProvider).value;
 });
 
+final biometricEnabledProvider = FutureProvider<bool>((ref) async {
+  return SecureStorageService.isBiometricEnabled();
+});
+
+final coldStartAuthProvider = FutureProvider<(bool, String?)>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return (false, null);
+  final valid = await SessionManager.isSessionValid();
+  if (!valid) return (false, null);
+  final doc = await FirebaseFirestore.instance
+      .collection("users")
+      .doc(user.uid)
+      .get();
+  final status = doc.data()?["status"] as String? ?? "active";
+  return (true, status);
+});
+
+final brandingThemeProvider = FutureProvider<ThemeData>((ref) async {
+  final authAsync = ref.watch(authStateProvider);
+  final user = authAsync.valueOrNull;
+  if (user == null) return ThemeData(primarySwatch: Colors.green);
+  final userState = ref.watch(userProvider);
+  final orgId = userState.organizationId;
+  if (orgId == null) return ThemeData(primarySwatch: Colors.green);
+  final service = BrandingService();
+  final branding = await service.getBranding(orgId);
+  return service.buildTheme(branding);
+});
+
 class UserState {
   final String? chamaId;
   final String? organizationId;
   final String? name;
   final String? email;
   final String? role;
+  final String? platformRole;
   final bool isLoading;
   final String? error;
 
@@ -32,6 +67,7 @@ class UserState {
     this.name,
     this.email,
     this.role,
+    this.platformRole,
     this.isLoading = false,
     this.error,
   });
@@ -42,6 +78,7 @@ class UserState {
     String? name,
     String? email,
     String? role,
+    String? platformRole,
     bool? isLoading,
     String? error,
   }) {
@@ -51,6 +88,7 @@ class UserState {
       name: name ?? this.name,
       email: email ?? this.email,
       role: role ?? this.role,
+      platformRole: platformRole ?? this.platformRole,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -78,6 +116,7 @@ class UserNotifier extends StateNotifier<UserState> {
             name: data["name"],
             email: data["email"],
             role: data["role"],
+            platformRole: data["platformRole"],
             isLoading: false,
           );
         } else {
@@ -114,4 +153,8 @@ final isOnlineProvider = Provider<bool>((ref) {
     loading: () => true,
     error: (_, __) => true,
   );
+});
+
+final chamaRepositoryProvider = Provider<ChamaRepository>((ref) {
+  return FirestoreChamaRepository(ref.watch(firebaseFirestoreProvider));
 });

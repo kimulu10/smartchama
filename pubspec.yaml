@@ -31,6 +31,10 @@ dependencies:
   firebase_storage: ^11.7.7
   firebase_messaging: ^14.9.4
 
+  # Crashlytics & Performance
+  firebase_crashlytics: ^3.5.0
+  firebase_performance: ^0.9.0
+
   # State management - Riverpod
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
@@ -80,6 +84,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  fake_cloud_firestore: ^2.5.2
 
 flutter:
 
