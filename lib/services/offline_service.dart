@@ -1,5 +1,4 @@
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

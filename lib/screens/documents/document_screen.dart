@@ -180,7 +180,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<DocumentType>(
-              value: selectedType,
+              initialValue: selectedType,
               decoration: const InputDecoration(labelText: 'Type'),
               items: DocumentType.values
                   .map((t) => DropdownMenuItem(

@@ -181,7 +181,7 @@ class _DividendScreenState extends State<DividendScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                value: selectedMonth,
+                initialValue: selectedMonth,
                 decoration: const InputDecoration(labelText: 'Month'),
                 items: List.generate(12, (i) => i + 1)
                     .map((m) => DropdownMenuItem(
@@ -193,7 +193,7 @@ class _DividendScreenState extends State<DividendScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                value: selectedYear,
+                initialValue: selectedYear,
                 decoration: const InputDecoration(labelText: 'Year'),
                 items: List.generate(5, (i) => DateTime.now().year - i)
                     .map((y) => DropdownMenuItem(
@@ -255,11 +255,11 @@ class _DividendScreenState extends State<DividendScreen> {
         expand: false,
         builder: (context, scrollController) => Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
+            const Padding(
+              padding: EdgeInsets.all(16),
               child: Text(
                 'Dividend Distribution',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),

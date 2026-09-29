@@ -69,6 +69,17 @@ class InvestmentService {
         .toList();
   }
 
+  Stream<List<Investment>> watchInvestments(String chamaId) {
+    return _investments
+        .where('chamaId', isEqualTo: chamaId)
+        .orderBy('startDate', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) =>
+                Investment.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .toList());
+  }
+
   Future<InvestmentSummary> getInvestmentSummary(String chamaId) async {
     final investments = await getInvestments(chamaId);
     final active =
@@ -93,6 +104,74 @@ class InvestmentService {
     );
   }
 
+  Future<PortfolioAnalysis> getPortfolioAnalysis(String chamaId) async {
+    final investments = await getInvestments(chamaId);
+    final active = investments.where((i) => i.status == InvestmentStatus.active).toList();
+
+    double totalInvested = 0;
+    for (final inv in active) {
+      totalInvested += inv.amount;
+    }
+
+    final typeAllocation = <InvestmentType, double>{};
+    final typeReturns = <InvestmentType, double>{};
+    final typeCounts = <InvestmentType, int>{};
+
+    for (final inv in active) {
+      typeAllocation[inv.type] = (typeAllocation[inv.type] ?? 0) + inv.amount;
+      typeReturns[inv.type] = (typeReturns[inv.type] ?? 0) + inv.actualReturn;
+      typeCounts[inv.type] = (typeCounts[inv.type] ?? 0) + 1;
+    }
+
+    final diversificationScore = _calculateDiversificationScore(typeAllocation.length, totalInvested, typeAllocation);
+    final concentrationRisk = _calculateConcentrationRisk(totalInvested, typeAllocation);
+
+    final maturedInvestments = investments.where((i) => i.status == InvestmentStatus.matured || i.status == InvestmentStatus.liquidated).toList();
+    double totalMaturedReturns = 0;
+    double totalMaturedAmount = 0;
+    for (final inv in maturedInvestments) {
+      totalMaturedReturns += inv.actualReturn;
+      totalMaturedAmount += inv.amount;
+    }
+
+    return PortfolioAnalysis(
+      totalInvested: totalInvested,
+      totalActive: active.length,
+      totalMatured: maturedInvestments.length,
+      typeAllocation: typeAllocation,
+      typeReturns: typeReturns,
+      typeCounts: typeCounts,
+      diversificationScore: diversificationScore,
+      concentrationRisk: concentrationRisk,
+      historicalReturn: totalMaturedAmount > 0 ? (totalMaturedReturns / totalMaturedAmount) * 100 : 0,
+    );
+  }
+
+  double _calculateDiversificationScore(int typeCount, double totalInvested, Map<InvestmentType, double> allocation) {
+    if (typeCount == 0 || totalInvested == 0) return 0;
+    if (typeCount == 1) return 20;
+    if (typeCount == 2) return 50;
+    if (typeCount >= 3) return 80;
+
+    double maxAllocation = 0;
+    for (final amount in allocation.values) {
+      if (amount > maxAllocation) maxAllocation = amount;
+    }
+    final maxPercentage = maxAllocation / totalInvested;
+    if (maxPercentage > 0.7) return 40;
+    if (maxPercentage > 0.5) return 60;
+    return 80;
+  }
+
+  double _calculateConcentrationRisk(double totalInvested, Map<InvestmentType, double> allocation) {
+    if (totalInvested == 0) return 0;
+    double maxAllocation = 0;
+    for (final amount in allocation.values) {
+      if (amount > maxAllocation) maxAllocation = amount;
+    }
+    return (maxAllocation / totalInvested) * 100;
+  }
+
   Future<void> liquidateInvestment(
       String investmentId, double actualReturn) async {
     await _investments.doc(investmentId).update({
@@ -100,5 +179,58 @@ class InvestmentService {
       'status': InvestmentStatus.liquidated.index,
       'endDate': DateTime.now().millisecondsSinceEpoch,
     });
+  }
+
+  Future<void> matureInvestment(String investmentId) async {
+    await _investments.doc(investmentId).update({
+      'status': InvestmentStatus.matured.index,
+      'endDate': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  Future<List<Investment>> getInvestmentsDueForMaturity(String chamaId) async {
+    final now = DateTime.now();
+    final investments = await getInvestments(chamaId);
+    return investments.where((i) {
+      if (i.status != InvestmentStatus.active || i.endDate == null) return false;
+      return i.endDate!.isBefore(now.add(const Duration(days: 7)));
+    }).toList();
+  }
+}
+
+class PortfolioAnalysis {
+  final double totalInvested;
+  final int totalActive;
+  final int totalMatured;
+  final Map<InvestmentType, double> typeAllocation;
+  final Map<InvestmentType, double> typeReturns;
+  final Map<InvestmentType, int> typeCounts;
+  final double diversificationScore;
+  final double concentrationRisk;
+  final double historicalReturn;
+
+  PortfolioAnalysis({
+    required this.totalInvested,
+    required this.totalActive,
+    required this.totalMatured,
+    required this.typeAllocation,
+    required this.typeReturns,
+    required this.typeCounts,
+    required this.diversificationScore,
+    required this.concentrationRisk,
+    required this.historicalReturn,
+  });
+
+  String get diversificationRating {
+    if (diversificationScore >= 80) return 'Excellent';
+    if (diversificationScore >= 60) return 'Good';
+    if (diversificationScore >= 40) return 'Fair';
+    return 'Poor';
+  }
+
+  String get riskLevel {
+    if (concentrationRisk > 70) return 'High';
+    if (concentrationRisk > 50) return 'Medium';
+    return 'Low';
   }
 }

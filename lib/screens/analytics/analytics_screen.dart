@@ -99,8 +99,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   Widget _buildAnalytics() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
+          .collection("organizations")
+          .doc(widget.organizationId)
+          .collection("chamas")
+          .doc(widget.chamaId)
           .collection("transactions")
-          .where("chamaId", isEqualTo: widget.chamaId)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -179,10 +182,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
               monthlyData[month] = (monthlyData[month] ?? 0) + amount;
               memberContributions[memberName] = (memberContributions[memberName] ?? 0) + amount;
             }
-            if (type == "loan_request") {
+            if (type == "loan_request" && status == "approved") {
               totalLoans += amount;
             }
-            if (type == "loan_repayment") {
+            if (type == "loan_repayment" && (status == "completed" || status == "success")) {
               totalRepayments += amount;
             }
 
@@ -307,7 +310,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
             Expanded(
               child: _buildMetricCard(
                 'Net Balance',
-                'KES ${_formatNumber(contributions - loans)}',
+                'KES ${_formatNumber(contributions + repayments - loans)}',
                 Icons.account_balance_wallet,
                 const Color(0xFF2E7D32),
               ),

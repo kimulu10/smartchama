@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smartchama/widgets/common_widgets.dart';
-import 'package:smartchama/services/offline_storage_service.dart';
+import 'package:smartchama/services/notification_service.dart';
+import 'package:smartchama/models/chama_model.dart';
 
 class ContributionScreen extends StatefulWidget {
   final String organizationId;
@@ -19,7 +21,55 @@ class ContributionScreen extends StatefulWidget {
 
 class _ContributionScreenState extends State<ContributionScreen> {
   final amountController = TextEditingController();
+  final FirebaseAuth auth = FirebaseAuth.instance;
   bool _isLoading = false;
+  String chamaName = "";
+  ChamaRules chamaRules = ChamaRules();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChamaInfo();
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadChamaInfo() async {
+    final chamaDoc = await FirebaseFirestore.instance
+        .collection("organizations")
+        .doc(widget.organizationId)
+        .collection("chamas")
+        .doc(widget.chamaId)
+        .get();
+
+    if (chamaDoc.exists) {
+      final data = chamaDoc.data();
+      if (mounted) {
+        setState(() {
+          chamaName = data?["name"] ?? "";
+          if (data?["rules"] != null) {
+            chamaRules = ChamaRules.fromMap(Map<String, dynamic>.from(data!["rules"]));
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _scheduleContributionReminder() async {
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    await NotificationService().scheduleContributionReminder(
+      chamaId: widget.chamaId,
+      chamaName: chamaName,
+      deadline: chamaRules.contributionDeadline,
+      amount: chamaRules.contributionAmount,
+    );
+  }
 
   void addContribution() async {
     if (amountController.text.isEmpty) {
@@ -32,6 +82,7 @@ class _ContributionScreenState extends State<ContributionScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final user = auth.currentUser;
       final ref = FirebaseFirestore.instance
           .collection("organizations")
           .doc(widget.organizationId)
@@ -40,27 +91,53 @@ class _ContributionScreenState extends State<ContributionScreen> {
           .collection("contributions");
 
       await ref.add({
+        "userId": user?.uid,
         "amount": double.parse(amountController.text),
         "createdAt": FieldValue.serverTimestamp(),
+        "month": DateTime.now().month,
+        "year": DateTime.now().year,
+        "paymentMethod": "manual",
+        "status": "completed",
+      });
+
+      await FirebaseFirestore.instance
+          .collection("organizations")
+          .doc(widget.organizationId)
+          .collection("chamas")
+          .doc(widget.chamaId)
+          .collection("transactions")
+          .add({
+        "userId": user?.uid,
+        "chamaId": widget.chamaId,
+        "amount": double.parse(amountController.text),
+        "type": "contribution",
+        "timestamp": FieldValue.serverTimestamp(),
+        "status": "completed",
+        "paymentMethod": "manual",
       });
 
       amountController.clear();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Contribution Added")),
-      );
+      await _scheduleContributionReminder();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Contribution Added")),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _refresh() async {
     setState(() {});
-    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
@@ -73,7 +150,11 @@ class _ContributionScreenState extends State<ContributionScreen> {
         .collection("contributions");
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Contributions")),
+      appBar: AppBar(
+        title: Text(chamaName.isEmpty ? "Contributions" : "$chamaName - Contributions"),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: SingleChildScrollView(
@@ -82,6 +163,31 @@ class _ContributionScreenState extends State<ContributionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Card(
+                color: const Color(0xFFE8F5E9),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Color(0xFF2E7D32)),
+                          SizedBox(width: 8),
+                          Text(
+                            "Contribution Details",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text("Expected Amount: KES ${chamaRules.contributionAmount.toStringAsFixed(0)}"),
+                      Text("Deadline: ${chamaRules.contributionDeadline.day}/${chamaRules.contributionDeadline.month}/${chamaRules.contributionDeadline.year}"),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -110,6 +216,10 @@ class _ContributionScreenState extends State<ContributionScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : addContribution,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                          ),
                           child: _isLoading
                               ? const SizedBox(
                                   height: 20,
@@ -171,14 +281,21 @@ class _ContributionScreenState extends State<ContributionScreen> {
                       final amount = (data["amount"] ?? 0).toDouble();
                       final timestamp =
                           (data["createdAt"] as Timestamp?)?.toDate();
+                      final status = data["status"] ?? "completed";
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: const Color(0xFF1B5E20),
-                            child: const Icon(Icons.attach_money,
-                                color: Colors.white),
+                            backgroundColor: status == "completed"
+                                ? const Color(0xFF1B5E20)
+                                : Colors.orange,
+                            child: Icon(
+                              status == "completed"
+                                  ? Icons.attach_money
+                                  : Icons.pending,
+                              color: Colors.white,
+                            ),
                           ),
                           title: Text(
                             "KES ${amount.toStringAsFixed(0)}",
@@ -189,8 +306,14 @@ class _ContributionScreenState extends State<ContributionScreen> {
                                 ? "${timestamp.day}/${timestamp.month}/${timestamp.year}"
                                 : "Unknown date",
                           ),
-                          trailing: const Icon(Icons.check_circle,
-                              color: Colors.green),
+                          trailing: Icon(
+                            status == "completed"
+                                ? Icons.check_circle
+                                : Icons.pending,
+                            color: status == "completed"
+                                ? Colors.green
+                                : Colors.orange,
+                          ),
                         ),
                       );
                     },
@@ -202,11 +325,5 @@ class _ContributionScreenState extends State<ContributionScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    amountController.dispose();
-    super.dispose();
   }
 }

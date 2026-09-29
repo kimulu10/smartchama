@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:smartchama/services/chama_service.dart';
 import 'package:smartchama/screens/dashboard/unified_dashboard.dart';
 
 class JoinChamaScreen extends StatefulWidget {
@@ -11,116 +12,90 @@ class JoinChamaScreen extends StatefulWidget {
 }
 
 class _JoinChamaScreenState extends State<JoinChamaScreen> {
-  final FirebaseAuth auth = FirebaseAuth.instance;
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final _chamaService = ChamaService();
+  final TextEditingController _codeController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
 
-  final TextEditingController codeController = TextEditingController();
-  bool isLoading = false;
-  String? errorMessage;
-
-  Future<void> joinChama() async {
-    final code = codeController.text.trim().toUpperCase();
+  Future<void> _joinChama() async {
+    final code = ChamaService.normalizeCode(_codeController.text);
 
     if (code.isEmpty) {
-      setState(() => errorMessage = "Please enter invite code");
+      setState(() => _errorMessage = "Please enter invite code");
       return;
     }
 
     setState(() {
-      isLoading = true;
-      errorMessage = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
-      final user = auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         setState(() {
-          isLoading = false;
-          errorMessage = "Please login first";
+          _isLoading = false;
+          _errorMessage = "Please login first";
         });
         return;
       }
 
-      // Search all organizations for the chama with this invite code
-      String? chamaId;
-      String? organizationId;
-      String? chamaName;
+      final result = await _chamaService.joinChamaWithCode(
+        inviteCode: code,
+        name: user.displayName,
+        email: user.email,
+      );
 
-      final orgs = await firestore.collection("organizations").get();
-      
-      for (var orgDoc in orgs.docs) {
-        final chamas = await firestore
-            .collection("organizations")
-            .doc(orgDoc.id)
-            .collection("chamas")
-            .where("inviteCode", isEqualTo: code)
-            .get();
-        
-        if (chamas.docs.isNotEmpty) {
-          final chama = chamas.docs.first;
-          chamaId = chama.id;
-          organizationId = orgDoc.id;
-          chamaName = chama.data()["name"];
-          break;
-        }
-      }
-
-      if (chamaId == null || organizationId == null) {
+      if (!result.isSuccess) {
         setState(() {
-          isLoading = false;
-          errorMessage = "Invalid invite code. Please check and try again.";
+          _isLoading = false;
+          _errorMessage = result.message ??
+              "Invalid invite code. Please check and try again.";
         });
         return;
       }
-
-      // Get user name from user doc
-      final userDoc = await firestore.collection("users").doc(user.uid).get();
-      final userName = userDoc.data()?["name"] ?? user.email ?? "Member";
-
-      // Add member to the chama
-      await firestore
-          .collection("organizations")
-          .doc(organizationId)
-          .collection("chamas")
-          .doc(chamaId)
-          .collection("members")
-          .doc(user.uid)
-          .set({
-        "userId": user.uid,
-        "email": user.email,
-        "name": userName,
-        "role": "member",
-        "status": "pending",
-        "joinedAt": Timestamp.now(),
-      });
-
-      // Update user with chamaId and organizationId
-      await firestore.collection("users").doc(user.uid).set({
-        "chamaId": chamaId,
-        "organizationId": organizationId,
-        "role": "member",
-        "status": "pending",
-      }, SetOptions(merge: true));
 
       if (!mounted) return;
 
+      setState(() => _isLoading = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Joined $chamaName! Pending approval.")),
+        SnackBar(
+          content: Text(
+            result.status == JoinChamaStatus.joined
+                ? "Joined ${result.chamaName}!"
+                : "You are already a member of ${result.chamaName}.",
+          ),
+        ),
       );
 
-      // Navigate to dashboard
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => UnifiedDashboard(userId: user.uid),
+          builder: (_) => UnifiedDashboard(
+            userId: user.uid,
+            organizationId: result.ref?.organizationId,
+            chamaId: result.ref?.chamaId,
+          ),
         ),
         (route) => false,
       );
+    } on ChamaException catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.message;
+      });
     } catch (e) {
       setState(() {
-        isLoading = false;
-        errorMessage = "Error: ${e.toString()}";
+        _isLoading = false;
+        _errorMessage = "Error: ${e.toString()}";
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
   }
 
   @override
@@ -128,42 +103,123 @@ class _JoinChamaScreenState extends State<JoinChamaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Join Chama"),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextField(
-              controller: codeController,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: "Invite Code",
-                border: OutlineInputBorder(),
-                hintText: "Enter 6-character code",
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: const Icon(Icons.group_add,
+                  size: 50, color: Color(0xFF1B5E20)),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "Join a Chama",
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1B5E20),
               ),
             ),
-            if (errorMessage != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                errorMessage!,
-                style: const TextStyle(color: Colors.red),
+            const SizedBox(height: 8),
+            const Text(
+              "Enter the 6-character invite code shared by the chama admin",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 32),
+            TextField(
+              controller: _codeController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _isLoading ? null : _joinChama(),
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 24,
+                letterSpacing: 8,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: InputDecoration(
+                labelText: "Invite Code",
+                counterText: "",
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.paste, color: Color(0xFF1B5E20)),
+                  tooltip: "Paste code",
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    final text = ChamaService.normalizeCode(data?.text ?? '');
+                    if (text.isNotEmpty) {
+                      setState(() => _codeController.text = text);
+                    }
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFF1B5E20), width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red[600], size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red[700], fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
+              height: 56,
               child: ElevatedButton(
-                onPressed: isLoading ? null : joinChama,
+                onPressed: _isLoading ? null : _joinChama,
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: const Color(0xFF2E7D32),
+                  backgroundColor: const Color(0xFF1B5E20),
                   foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
                 ),
-                child: isLoading
+                child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Join Chama"),
+                    : const Text(
+                        "Join Chama",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
               ),
             ),
           ],

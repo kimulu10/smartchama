@@ -3,6 +3,7 @@ class UserModel {
   final String email;
   final String role;
   final String organizationId;
+  final String? platformRole;
   final String? position;
   final List<String> responsibilities;
 
@@ -11,6 +12,7 @@ class UserModel {
     required this.email,
     required this.role,
     required this.organizationId,
+    this.platformRole,
     this.position,
     this.responsibilities = const [],
   });
@@ -36,6 +38,7 @@ class UserModel {
       'email': email,
       'role': role,
       'organizationId': organizationId,
+      'platformRole': platformRole,
       'position': position,
       'responsibilities': responsibilities.isNotEmpty ? responsibilities : getResponsibilities(role),
     };
@@ -47,6 +50,7 @@ class UserModel {
       email: map['email'],
       role: map['role'] ?? 'member',
       organizationId: map['organizationId'] ?? '',
+      platformRole: map['platformRole'],
       position: map['position'],
       responsibilities: List<String>.from(map['responsibilities'] ?? getResponsibilities(map['role'] ?? 'member')),
     );

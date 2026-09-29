@@ -173,9 +173,7 @@ class BankService {
     required String bankIntegrationId,
     List<BankTransaction>? bankTransactions,
   }) async {
-    if (bankTransactions == null) {
-      bankTransactions = await getBankTransactions(bankIntegrationId);
-    }
+    bankTransactions ??= await getBankTransactions(bankIntegrationId);
 
     final contributions = await _firestore
         .collection('contributions')
@@ -189,7 +187,7 @@ class BankService {
       for (final contribDoc in contributions.docs) {
         final contribData = contribDoc.data();
         final contribAmount = (contribData['amount'] ?? 0).toDouble();
-        final tolerance = 1.0;
+        const tolerance = 1.0;
 
         if ((bankTx.amount - contribAmount).abs() <= tolerance) {
           await _firestore

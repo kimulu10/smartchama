@@ -32,6 +32,23 @@ class Chama {
       status: data?['status'],
     );
   }
+
+  static String? organizationIdFromPath(String path) {
+    final segments = path.split('/');
+    if (segments.length >= 4 && segments[0] == 'organizations' && segments[2] == 'chamas') {
+      return segments[1];
+    }
+    return null;
+  }
+
+  static DateTime? parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) return DateTime.tryParse(value);
+    if (value is DateTime) return value;
+    return null;
+  }
 }
 
 class ChamaModel {
@@ -223,5 +240,60 @@ class ChamaFeatures {
       reportsEnabled: reportsEnabled ?? this.reportsEnabled,
       loanScoringEnabled: loanScoringEnabled ?? this.loanScoringEnabled,
     );
+  }
+}
+
+class ChamaRules {
+  final int contributionAmount;
+  final DateTime contributionDeadline;
+  final int loanRepaymentDays;
+  final double loanInterestRate;
+  final double maxLoanAmount;
+  final bool loansOptional;
+
+  ChamaRules({
+    this.contributionAmount = 1000,
+    DateTime? contributionDeadline,
+    this.loanRepaymentDays = 30,
+    this.loanInterestRate = 5.0,
+    this.maxLoanAmount = 50000,
+    this.loansOptional = false,
+  }) : contributionDeadline = contributionDeadline ?? DateTime.now().add(const Duration(days: 30));
+
+  factory ChamaRules.fromMap(Map<String, dynamic> map) {
+    final contributionAmount = map['contributionAmount'];
+    final loanRepaymentDays = map['loanRepaymentDays'];
+    final loanInterestRate = map['loanInterestRate'];
+    final maxLoanAmount = map['maxLoanAmount'];
+
+    return ChamaRules(
+      contributionAmount: contributionAmount is int
+          ? contributionAmount
+          : int.tryParse(contributionAmount?.toString() ?? '') ?? 1000,
+      contributionDeadline: map['contributionDeadline'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['contributionDeadline'])
+          : DateTime.now().add(const Duration(days: 30)),
+      loanRepaymentDays: loanRepaymentDays is int
+          ? loanRepaymentDays
+          : int.tryParse(loanRepaymentDays?.toString() ?? '') ?? 30,
+      loanInterestRate: loanInterestRate is num
+          ? loanInterestRate.toDouble()
+          : double.tryParse(loanInterestRate?.toString() ?? '') ?? 5.0,
+      maxLoanAmount: maxLoanAmount is num
+          ? maxLoanAmount.toDouble()
+          : double.tryParse(maxLoanAmount?.toString() ?? '') ?? 50000.0,
+      loansOptional: map['loansOptional'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'contributionAmount': contributionAmount,
+      'contributionDeadline': contributionDeadline.millisecondsSinceEpoch,
+      'loanRepaymentDays': loanRepaymentDays,
+      'loanInterestRate': loanInterestRate,
+      'maxLoanAmount': maxLoanAmount,
+      'loansOptional': loansOptional,
+    };
   }
 }

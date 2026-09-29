@@ -3,8 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:smartchama/services/image_service.dart';
+import '../subscription/subscription_screen.dart';
+import '../settings/branding_settings_screen.dart';
+import '../settings/white_label_settings_screen.dart';
+import '../wallet/wallet_screen.dart';
+import '../ai/ai_advisor_screen.dart';
+import '../ai/fraud_detection_screen.dart';
+import '../communication/communication_center_screen.dart';
+import '../reports/advanced_reports_screen.dart';
+import '../settings/api_integrations_screen.dart';
+import '../settings/payment_gateway_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String chamaId;
@@ -23,7 +32,6 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final FirebaseAuth auth = FirebaseAuth.instance;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  final ImagePicker _picker = ImagePicker();
 
   bool isLoading = true;
   String chamaName = "";
@@ -93,26 +101,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> pickLogo() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
+      final downloadUrl = await ImageService.pickAndUploadImage(
+        path: ImageUploadPath.chamaLogos,
+        identifier: widget.chamaId,
         maxWidth: 500,
         maxHeight: 500,
-        imageQuality: 80,
+        quality: 80,
       );
 
-      if (image != null) {
-        final File file = File(image.path);
-        final String fileName = "logo_${widget.chamaId}_${DateTime.now().millisecondsSinceEpoch}";
-        
-        final ref = firebase_storage.FirebaseStorage.instance
-            .ref()
-            .child("chama_logos")
-            .child(fileName);
-            
-        final uploadTask = ref.putFile(file);
-        final snapshot = await uploadTask;
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-
+      if (downloadUrl != null) {
         await firestore
             .collection("organizations")
             .doc(widget.organizationId)
@@ -286,6 +283,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {});
   }
 
+  void _navigateTo(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _goToSubscription() {
+    _navigateTo(SubscriptionScreen(organizationId: widget.organizationId));
+  }
+
+  void _goToBranding() {
+    _navigateTo(BrandingSettingsScreen(organizationId: widget.organizationId));
+  }
+
+  void _goToWhiteLabel() {
+    _navigateTo(WhiteLabelSettingsScreen(organizationId: widget.organizationId));
+  }
+
+  void _goToWallet() {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _navigateTo(WalletScreen(organizationId: widget.organizationId, userId: userId, chamaId: widget.chamaId));
+  }
+
+  void _goToAIAdvisor() {
+    _navigateTo(AIAdvisorScreen(chamaId: widget.chamaId, organizationId: widget.organizationId));
+  }
+
+  void _goToFraudDetection() {
+    _navigateTo(FraudDetectionScreen(chamaId: widget.chamaId, organizationId: widget.organizationId));
+  }
+
+  void _goToCommunication() {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _navigateTo(CommunicationCenterScreen(organizationId: widget.organizationId, chamaId: widget.chamaId, userId: userId));
+  }
+
+  void _goToReports() {
+    _navigateTo(AdvancedReportsScreen(chamaId: widget.chamaId, organizationId: widget.organizationId, chamaName: chamaName));
+  }
+
+  void _goToIntegrations() {
+    _navigateTo(ApiIntegrationsScreen(organizationId: widget.organizationId));
+  }
+
+  void _goToPayments() {
+    _navigateTo(PaymentGatewayScreen(organizationId: widget.organizationId));
+  }
+
   Color getRoleColor(String role) {
     switch (role) {
       case 'chairman':
@@ -348,6 +391,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _buildRulesCard(),
               const SizedBox(height: 24),
               _buildMembersCard(),
+              const SizedBox(height: 24),
+              _buildAdminQuickActions(),
             ],
           ),
         ),
@@ -371,8 +416,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: const Color(0xFF2E7D32).withOpacity(0.1),
-                    backgroundImage: logoUrl != null ? NetworkImage(logoUrl!) : null,
-                    child: logoUrl == null
+                    backgroundImage: logoUrl != null && logoUrl!.isNotEmpty
+                        ? NetworkImage(logoUrl!)
+                        : null,
+                    child: (logoUrl == null || logoUrl!.isEmpty)
                         ? const Icon(Icons.business, size: 50, color: Color(0xFF2E7D32))
                         : null,
                   ),
@@ -736,8 +783,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: roleColor.withOpacity(0.1),
-          backgroundImage: profileImageUrl != null ? NetworkImage(profileImageUrl) : null,
-          child: profileImageUrl == null ? Icon(roleIcon, color: roleColor, size: 20) : null,
+          backgroundImage: (profileImageUrl != null && profileImageUrl.isNotEmpty)
+              ? NetworkImage(profileImageUrl)
+              : null,
+          child: (profileImageUrl == null || profileImageUrl.isEmpty)
+              ? Icon(roleIcon, color: roleColor, size: 20)
+              : null,
         ),
         title: Row(
           children: [
@@ -835,6 +886,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         SnackBar(content: Text("Error: $e")),
       );
     }
+  }
+
+  Widget _buildAdminQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Administration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _adminActionBtn("Subscription", Icons.card_membership, Colors.purple, _goToSubscription),
+            _adminActionBtn("Branding", Icons.palette, Colors.pink, _goToBranding),
+            _adminActionBtn("White Label", Icons.language, Colors.indigo, _goToWhiteLabel),
+            _adminActionBtn("Wallet", Icons.account_balance_wallet, Colors.green, _goToWallet),
+            _adminActionBtn("AI Advisor", Icons.lightbulb, Colors.amber, _goToAIAdvisor),
+            _adminActionBtn("Fraud Detection", Icons.security, Colors.red, _goToFraudDetection),
+            _adminActionBtn("Reports", Icons.picture_as_pdf, Colors.blue, _goToReports),
+            _adminActionBtn("Communication", Icons.notifications, Colors.orange, _goToCommunication),
+            _adminActionBtn("Integrations", Icons.settings_input_component, Colors.teal, _goToIntegrations),
+            _adminActionBtn("Payments", Icons.payment, Colors.deepPurple, _goToPayments),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _adminActionBtn(String title, IconData icon, Color color, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(title, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+    );
   }
 
   @override

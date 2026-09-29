@@ -30,10 +30,7 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -70,5 +67,14 @@ class DefaultFirebaseOptions {
     projectId: 'smart-chama-5ecaf',
     storageBucket: 'smart-chama-5ecaf.firebasestorage.app',
     iosBundleId: 'com.example.smartchama',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDGw8EW5bQdt95rSDwtEbYMKrcFuWxGfRw',
+    appId: '1:645114153552:web:5695e9d77cb1000f76df55',
+    messagingSenderId: '645114153552',
+    projectId: 'smart-chama-5ecaf',
+    authDomain: 'smart-chama-5ecaf.firebaseapp.com',
+    storageBucket: 'smart-chama-5ecaf.firebasestorage.app',
   );
 }

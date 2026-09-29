@@ -160,6 +160,13 @@ class BiometricService {
       return false;
     }
   }
+
+  static Future<bool> isBiometricUnlocked() async {
+    final enabled = await SecureStorageService.isBiometricEnabled();
+    if (!enabled) return false;
+    final available = await isBiometricAvailable();
+    return available;
+  }
 }
 
 class SecureStorageService {
@@ -191,6 +198,10 @@ class SecureStorageService {
   static Future<bool> isBiometricEnabled() async {
     final value = await _storage.read(key: 'biometric_enabled');
     return value == 'true';
+  }
+
+  static Future<void> disableBiometric() async {
+    await _storage.delete(key: 'biometric_enabled');
   }
 
   /// Clears session and user prefs. Does not sign out of Firebase — call

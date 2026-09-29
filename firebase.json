@@ -1,1 +1,19 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"smart-chama-5ecaf","appId":"1:645114153552:android:62ee9085584246ab76df55","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"smart-chama-5ecaf","configurations":{"android":"1:645114153552:android:62ee9085584246ab76df55","ios":"1:645114153552:ios:1bac9de7cad6666776df55","web":"1:645114153552:web:5695e9d77cb1000f76df55"}}}}}}
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs18",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

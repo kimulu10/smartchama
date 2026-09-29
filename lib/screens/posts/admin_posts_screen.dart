@@ -326,7 +326,7 @@ class _AdminPostsScreenState extends State<AdminPostsScreen> {
 
         return Column(
           children: replies.map((reply) {
-            final data = reply.data() as Map<String, dynamic>;
+            final data = reply.data();
             final content = data["content"] ?? "";
             final createdAt = data["createdAt"] as Timestamp?;
 

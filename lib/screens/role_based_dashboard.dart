@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'admin/admin_dashboard_screen.dart';
 import 'dashboard/unified_dashboard.dart';
-import 'leaders/leader_dashboard.dart';
+import 'platform/super_admin_dashboard.dart';
 
-/// Routes the user to the appropriate dashboard based on their chama role.
+/// Routes the user to the appropriate dashboard based on their role.
+///
+/// Super admins get the platform-level dashboard. Everyone else — admins,
+/// chairmen, treasurers, secretaries, and members — lands on the unified
+/// dashboard which adapts its content based on the user's role.
 class RoleBasedDashboard extends StatelessWidget {
   final String userId;
 
@@ -19,6 +22,7 @@ class RoleBasedDashboard extends StatelessWidget {
       'role': (data['role'] as String?) ?? 'member',
       'organizationId': (data['organizationId'] as String?) ?? '',
       'chamaId': (data['chamaId'] as String?) ?? '',
+      'platformRole': (data['platformRole'] as String?) ?? '',
     };
   }
 
@@ -34,32 +38,19 @@ class RoleBasedDashboard extends StatelessWidget {
         }
 
         final ctx = snapshot.data ?? {};
-        final role = ctx['role'] ?? 'member';
+        final platformRole = ctx['platformRole'] ?? '';
         final organizationId = ctx['organizationId'] ?? '';
         final chamaId = ctx['chamaId'] ?? '';
 
-        if (organizationId.isEmpty || chamaId.isEmpty) {
-          return UnifiedDashboard(userId: userId);
+        if (platformRole == 'super_admin') {
+          return const SuperAdminDashboard();
         }
 
-        switch (role) {
-          case 'admin':
-          case 'chairman':
-            return AdminDashboardScreen(
-              organizationId: organizationId,
-              chamaId: chamaId,
-            );
-          case 'treasurer':
-          case 'secretary':
-            return LeaderDashboard(
-              organizationId: organizationId,
-              chamaId: chamaId,
-              userId: userId,
-              role: role,
-            );
-          default:
-            return UnifiedDashboard(userId: userId);
-        }
+        return UnifiedDashboard(
+          userId: userId,
+          organizationId: organizationId.isNotEmpty ? organizationId : null,
+          chamaId: chamaId.isNotEmpty ? chamaId : null,
+        );
       },
     );
   }

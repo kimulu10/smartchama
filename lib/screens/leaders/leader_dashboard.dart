@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../admin/admin_dashboard_screen.dart';
 import '../chama/members_screen.dart';
 import '../loans/loan_management_screen.dart';
 import '../contributions/contribution_screen.dart';
@@ -10,6 +9,9 @@ import '../analytics/analytics_screen.dart';
 import '../posts/admin_posts_screen.dart';
 import '../posts/voting_screen.dart';
 import '../meetings/meeting_scheduler.dart';
+import '../communication/leader_private_chat_screen.dart';
+import '../subscription/organization_offers_screen.dart';
+import '../dashboard/unified_dashboard.dart';
 
 class LeaderDashboard extends StatefulWidget {
   final String chamaId;
@@ -35,6 +37,7 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
 
   bool isLoading = true;
   String chamaName = "";
+  String userName = "";
   Map<String, dynamic> stats = {};
 
   @override
@@ -55,7 +58,11 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
       setState(() => chamaName = chamaDoc.data()?["name"] ?? "Chama");
     }
 
-    // Get member count
+    final userDoc = await firestore.collection("users").doc(widget.userId).get();
+    if (userDoc.exists) {
+      userName = userDoc.data()?["name"] ?? userDoc.data()?["email"] ?? "Leader";
+    }
+
     final members = await firestore
         .collection("organizations")
         .doc(widget.organizationId)
@@ -64,7 +71,6 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
         .collection("members")
         .get();
 
-    // Get loans stats
     final loans = await firestore
         .collection("organizations")
         .doc(widget.organizationId)
@@ -87,7 +93,6 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
       if (status == "pending") pendingLoans++;
     }
 
-    // Get contributions
     final contributions = await firestore
         .collection("organizations")
         .doc(widget.organizationId)
@@ -180,7 +185,7 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
 
   Widget _buildRoleCard() {
     final responsibilities = _getResponsibilities();
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -208,7 +213,7 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Welcome, ${widget.role.substring(0, 1).toUpperCase()}${widget.role.substring(1)}",
+                      "Welcome, $userName",
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -317,7 +322,6 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
   Widget _buildQuickActions() {
     List<Map<String, dynamic>> actions = [];
 
-    // Common for all leaders
     actions.addAll([
       {"title": "View Members", "icon": Icons.people, "color": Colors.blue},
       {"title": "Loans", "icon": Icons.money, "color": Colors.orange},
@@ -325,7 +329,6 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
       {"title": "Transactions", "icon": Icons.receipt, "color": Colors.purple},
     ]);
 
-    // Role specific
     if (widget.role == "treasurer" || widget.role == "admin") {
       actions.addAll([
         {"title": "Analytics", "icon": Icons.analytics, "color": Colors.teal},
@@ -342,9 +345,19 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
 
     if (widget.role == "chairman" || widget.role == "admin" || widget.role == "secretary" || widget.role == "treasurer") {
       actions.addAll([
-        {"title": "Settings", "icon": Icons.settings, "color": Colors.grey},
+        {"title": "Leader Chat", "icon": Icons.lock, "color": Colors.brown},
       ]);
     }
+
+    if (widget.role == "admin") {
+      actions.addAll([
+        {"title": "Org Offers", "icon": Icons.local_offer, "color": Colors.deepOrange},
+      ]);
+    }
+
+    actions.addAll([
+      {"title": "Settings", "icon": Icons.settings, "color": Colors.grey},
+    ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,6 +478,32 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
             builder: (_) => MeetingScheduler(
               chamaId: widget.chamaId,
               organizationId: widget.organizationId,
+              isLeader: true,
+            ),
+          ),
+        );
+        break;
+      case "Leader Chat":
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LeaderPrivateChatScreen(
+              chamaId: widget.chamaId,
+              organizationId: widget.organizationId,
+              userId: widget.userId,
+              userName: userName,
+              role: widget.role,
+            ),
+          ),
+        );
+        break;
+      case "Org Offers":
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrganizationOffersScreen(
+              organizationId: widget.organizationId,
+              chamaId: widget.chamaId,
             ),
           ),
         );
@@ -473,9 +512,10 @@ class _LeaderDashboardState extends State<LeaderDashboard> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AdminDashboardScreen(
-              chamaId: widget.chamaId,
+            builder: (_) => UnifiedDashboard(
+              userId: widget.userId,
               organizationId: widget.organizationId,
+              chamaId: widget.chamaId,
             ),
           ),
         );

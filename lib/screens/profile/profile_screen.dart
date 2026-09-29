@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart' show ImagePicker, ImageSource, XFile;
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:image_picker/image_picker.dart';
+import 'package:smartchama/services/image_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -24,7 +24,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth auth = FirebaseAuth.instance;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  final ImagePicker _picker = ImagePicker();
 
   bool isLoading = true;
   bool isSaving = false;
@@ -33,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userEmail = "";
   String userRole = "";
   String? profileImageUrl;
+  String? _localProfilePath;
   String chamaName = "";
 
   final nameController = TextEditingController();
@@ -77,63 +77,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
-      );
+    final XFile? pickedFile = await ImageService.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 80,
+    );
 
-      if (image != null) {
-        setState(() => isSaving = true);
-        
-        // Upload to Firebase Storage
-        final File file = File(image.path);
-        final String fileName = "profile_${widget.userId}_${DateTime.now().millisecondsSinceEpoch}";
-        
-        final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance
-            .ref()
-            .child("profile_images")
-            .child(fileName);
-            
-        final uploadTask = ref.putFile(file);
-        final snapshot = await uploadTask;
-        final downloadUrl = await snapshot.ref.getDownloadURL();
+    if (pickedFile == null || !mounted) return;
 
-        // Update user profile
-        await firestore.collection("users").doc(widget.userId).set({
-          "profileImageUrl": downloadUrl,
-        }, SetOptions(merge: true));
+    // Show a local preview immediately before uploading so the user gets
+    // instant visual feedback.
+    setState(() {
+      _localProfilePath = pickedFile.path;
+      isSaving = true;
+    });
 
-        // Also update in chama members
-        await firestore
-            .collection("organizations")
-            .doc(widget.organizationId)
-            .collection("chamas")
-            .doc(widget.chamaId)
-            .collection("members")
-            .doc(widget.userId)
-            .set({
-          "profileImageUrl": downloadUrl,
-        }, SetOptions(merge: true));
+    final downloadUrl = await ImageService.uploadImage(
+      file: File(pickedFile.path),
+      path: ImageUploadPath.profileImages,
+      identifier: widget.userId,
+      quality: 80,
+      maxWidth: 800,
+      maxHeight: 800,
+    );
 
-        setState(() {
-          profileImageUrl = downloadUrl;
-          isSaving = false;
-        });
+    if (!mounted) return;
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Profile picture updated!")),
-          );
-        }
+    if (downloadUrl != null) {
+      await firestore.collection("users").doc(widget.userId).set({
+        "profileImageUrl": downloadUrl,
+      }, SetOptions(merge: true));
+
+      await firestore
+          .collection("organizations")
+          .doc(widget.organizationId)
+          .collection("chamas")
+          .doc(widget.chamaId)
+          .collection("members")
+          .doc(widget.userId)
+          .set({
+        "profileImageUrl": downloadUrl,
+      }, SetOptions(merge: true));
+
+      setState(() {
+        profileImageUrl = downloadUrl;
+        _localProfilePath = null;
+        isSaving = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile picture updated!")),
+        );
       }
-    } catch (e) {
+    } else {
       setState(() => isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          const SnackBar(content: Text("Failed to upload profile picture.")),
         );
       }
     }
@@ -274,12 +276,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               GestureDetector(
                 onTap: pickImage,
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.white,
-                  backgroundImage: profileImageUrl != null
-                      ? NetworkImage(profileImageUrl!)
-                      : null,
+                  child: CircleAvatar(
+                   radius: 60,
+                   backgroundColor: Colors.white,
+                   backgroundImage: _localProfilePath != null
+                       ? FileImage(File(_localProfilePath!)) as ImageProvider?
+                       : profileImageUrl != null
+                           ? NetworkImage(profileImageUrl!) as ImageProvider?
+                           : null,
                   child: profileImageUrl == null
                       ? Icon(
                           Icons.person,

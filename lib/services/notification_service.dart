@@ -192,6 +192,115 @@ class NotificationService {
     );
   }
 
+  Future<void> scheduleContributionReminder({
+    required String chamaId,
+    required String chamaName,
+    required DateTime deadline,
+    required double amount,
+  }) async {
+    final oneDayBefore = deadline.subtract(const Duration(days: 1));
+    final threeDaysBefore = deadline.subtract(const Duration(days: 3));
+
+    if (threeDaysBefore.isAfter(DateTime.now())) {
+      await scheduleLocalNotification(
+        id: '${chamaId}_3day'.hashCode,
+        title: 'Contribution Due Soon',
+        body: 'Your $chamaName contribution of KES ${amount.toStringAsFixed(0)} is due in 3 days',
+        scheduledDate: threeDaysBefore,
+        payload: 'contribution_${chamaId}_3',
+      );
+    }
+
+    if (oneDayBefore.isAfter(DateTime.now())) {
+      await scheduleLocalNotification(
+        id: '${chamaId}_1day'.hashCode,
+        title: 'Contribution Due Tomorrow',
+        body: 'Your $chamaName contribution of KES ${amount.toStringAsFixed(0)} is due tomorrow',
+        scheduledDate: oneDayBefore,
+        payload: 'contribution_${chamaId}_1',
+      );
+    }
+  }
+
+  Future<void> notifyLoanRequest({
+    required String chamaId,
+    required String memberName,
+    required double amount,
+  }) async {
+    await showLocalNotification(
+      id: '${chamaId}_loan_${DateTime.now().millisecondsSinceEpoch}'.hashCode,
+      title: 'New Loan Request',
+      body: '$memberName has requested a loan of KES ${amount.toStringAsFixed(0)}',
+      payload: 'loan_request_$chamaId',
+    );
+  }
+
+  Future<void> notifyLoanStatus({
+    required String chamaId,
+    required String status,
+    required double amount,
+  }) async {
+    final title = status == 'approved' ? 'Loan Approved' : 'Loan Rejected';
+    final body = status == 'approved'
+        ? 'Your loan of KES ${amount.toStringAsFixed(0)} has been approved'
+        : 'Your loan of KES ${amount.toStringAsFixed(0)} has been rejected';
+
+    await showLocalNotification(
+      id: '${chamaId}_loan_status'.hashCode,
+      title: title,
+      body: body,
+      payload: 'loan_status_$chamaId',
+    );
+  }
+
+  Future<void> scheduleLoanDeadlineReminder({
+    required String chamaId,
+    required String loanId,
+    required DateTime deadline,
+    required double outstandingAmount,
+  }) async {
+    final reminderDate = deadline.subtract(const Duration(days: 2));
+    if (reminderDate.isAfter(DateTime.now())) {
+      await scheduleLocalNotification(
+        id: '${chamaId}_${loanId}_deadline'.hashCode,
+        title: 'Loan Payment Due Soon',
+        body: 'Your loan payment of KES ${outstandingAmount.toStringAsFixed(0)} is due in 2 days',
+        scheduledDate: reminderDate,
+        payload: 'loan_deadline_$chamaId',
+      );
+    }
+  }
+
+  Future<void> notifyNewMember({
+    required String chamaId,
+    required String memberName,
+    required String chamaName,
+  }) async {
+    await showLocalNotification(
+      id: '${chamaId}_new_member'.hashCode,
+      title: 'New Member Joined',
+      body: '$memberName has joined $chamaName',
+      payload: 'new_member_$chamaId',
+    );
+  }
+
+  Future<void> notifyNewMeeting({
+    required String chamaId,
+    required String meetingTitle,
+    required DateTime meetingDate,
+  }) async {
+    final reminderDate = meetingDate.subtract(const Duration(hours: 1));
+    if (reminderDate.isAfter(DateTime.now())) {
+      await scheduleLocalNotification(
+        id: '${chamaId}_meeting_${meetingTitle.hashCode}'.hashCode,
+        title: 'Meeting Reminder',
+        body: 'Meeting "$meetingTitle" starts in 1 hour',
+        scheduledDate: reminderDate,
+        payload: 'meeting_$chamaId',
+      );
+    }
+  }
+
   Future<void> scheduleMeetingReminder({
     required String chamaId,
     required DateTime meetingDate,
